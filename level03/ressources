@@ -1,0 +1,83 @@
+/***************************/
+/*	R E V E R S E 	   */
+/***************************/
+
+-> test(arg1, arg2)
+-> main function: decrypt 
+-> do some stuffs, extrct data on stack and o
+
+-> et local_21 avec des valeurs po
+
+
+valeurs decoded from local_21: 
+0x51	0x7d 	0x7c	0x75	0x60	0x73	0x66	0x67	0x7e	0x73	0x66	0x7b	0x7d	0x7c	0x61	0x33
+Q	}	|	u	`	s	f	g	~	s	f	{	}	|	a	3	
+
+Q}|u`sfg~sf{}|a3
+
+-> effectue une premiere boucle sur local_21 qui calcule sa longeur
+-> effectue un second tour et applique ctx sur chaque valeur (rand()) depuis test() + param1 - param2
+->  
+
+
+local_21: (first init and pos in the stack)
+0xffffd6b0:	0xf7fcfa20	0xf7fceff4	0x51000000	0x60757c7d
+0xffffd6c0:	0x7e676673	0x7d7b6673	0xf733617c	0x9517a900
+
+0xffffd6bb
+
+
+after modification:
+0xffffd6b0:	0x00000010	0x00000010	0x4b000000	0x7a6f6667
+0xffffd6c0:	0x647d7c69	0x67617c69	0x00297b66	0x06b8af00
+
+bVar6, bVar7
+( (!bVar6 && !bVar7) == bVar6) 
+-> bVar6: flase
+
+dernieres modifications de bVar6, bVar7
+
+boucle final compare pVar4 et pVar5 
+soit "Congratulations!" et local_21
+
+/**************************/
+/*   P R O T E C T I O N  */
+/**************************/
+
+RELRO           STACK CANARY      NX           
+Partial RELRO   Canary found      NX enabled    
+
+
+/**************/
+ 1. Partial RELRO
+/**************/
+
+-> can't overwrite plt or got
+
+
+/**************/
+ 2.  Canary
+/**************/
+-> Protect the return addres to be overwrite by a bufferoverflow on the stack
+-> generate a value before the ret addr
+	-> random
+	-> null string to stop shell code
+	-> dynamically calculate with a XOR
+
+limits:
+- Canary Value can be leaked/found
+- Limited to the stack 
+
+
+/**************/
+ 3. No eXecution - NX
+/**************/ 
+-> give sections permissions (r,w,x)
+-> protect zones to code execution like the heap, stack and sections (.bass, data)
+
+Limits:
+-> still possible to use executable code in other zones like .text
+-> ROP Return Oriented Programing -> fragments binary code
+
+
+
