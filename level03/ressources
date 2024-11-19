@@ -40,6 +40,20 @@ dernieres modifications de bVar6, bVar7
 boucle final compare pVar4 et pVar5 
 soit "Congratulations!" et local_21
 
+
+value: 322424824
+valid -> 0x15 with 322424824 value
+decrypt
+
+stack after ctx XOR 
+0xffffd6b0:	0x00000010	0x00000010	0x4400001f	0x75606968
+0xffffd6c0:	0x6b727366	0x686e7366	0x00267469	0xa1d93700
+
+0xffffd6bc:	 "hi`ufsrkfsnhit&"
+the meaning ???
+
+
+
 /**************************/
 /*   P R O T E C T I O N  */
 /**************************/
@@ -48,11 +62,20 @@ RELRO           STACK CANARY      NX
 Partial RELRO   Canary found      NX enabled    
 
 
-/**************/
+/*****************/
  1. Partial RELRO
-/**************/
+/*****************/
 
--> can't overwrite plt or got
+-> protect relocations dynamic tables against modifications
+-> can't overwrite GOT - Global Offset Table
+
+- 2 levels:
+	- Partial - protect only some metadatas, got is still editable
+	- Full - protect .dynamic sections 
+
+limits:
+- Rop Return Oriented Programming
+- Dependant of dynamic loader
 
 
 /**************/
@@ -69,9 +92,9 @@ limits:
 - Limited to the stack 
 
 
-/**************/
+/*********************/
  3. No eXecution - NX
-/**************/ 
+/*********************/ 
 -> give sections permissions (r,w,x)
 -> protect zones to code execution like the heap, stack and sections (.bass, data)
 
