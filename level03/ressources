@@ -1,57 +1,3 @@
-/***************************/
-/*	R E V E R S E 	   */
-/***************************/
-
--> test(arg1, arg2)
--> main function: decrypt 
--> do some stuffs, extrct data on stack and o
-
--> et local_21 avec des valeurs po
-
-
-valeurs decoded from local_21: 
-0x51	0x7d 	0x7c	0x75	0x60	0x73	0x66	0x67	0x7e	0x73	0x66	0x7b	0x7d	0x7c	0x61	0x33
-Q	}	|	u	`	s	f	g	~	s	f	{	}	|	a	3	
-
-Q}|u`sfg~sf{}|a3
-
--> effectue une premiere boucle sur local_21 qui calcule sa longeur
--> effectue un second tour et applique ctx sur chaque valeur (rand()) depuis test() + param1 - param2
-->  
-
-
-local_21: (first init and pos in the stack)
-0xffffd6b0:	0xf7fcfa20	0xf7fceff4	0x51000000	0x60757c7d
-0xffffd6c0:	0x7e676673	0x7d7b6673	0xf733617c	0x9517a900
-
-0xffffd6bb
-
-
-after modification:
-0xffffd6b0:	0x00000010	0x00000010	0x4b000000	0x7a6f6667
-0xffffd6c0:	0x647d7c69	0x67617c69	0x00297b66	0x06b8af00
-
-bVar6, bVar7
-( (!bVar6 && !bVar7) == bVar6) 
--> bVar6: flase
-
-dernieres modifications de bVar6, bVar7
-
-boucle final compare pVar4 et pVar5 
-soit "Congratulations!" et local_21
-
-
-value: 322424824
-valid -> 0x15 with 322424824 value
-decrypt
-
-stack after ctx XOR 
-0xffffd6b0:	0x00000010	0x00000010	0x4400001f	0x75606968
-0xffffd6c0:	0x6b727366	0x686e7366	0x00267469	0xa1d93700
-
-0xffffd6bc:	 "hi`ufsrkfsnhit&"
-the meaning ???
-
 
 
 /**************************/
@@ -103,4 +49,33 @@ Limits:
 -> ROP Return Oriented Programing -> fragments binary code
 
 
+/********************************************************************/
+/*			  R E V E R S E				    */
+/********************************************************************/
+
+main()
+-> wait input for password
+-> scanf convert input to %d decimal
+   0x080488b1 <+87>:	mov    eax,0x8048a85 (%d)
+-> value of input saved at 0xffffd72c
+
+test()
+-> found comparizon in test() function 
+-> check if a value ((0x1337d00d: 322424845) sub input) < 0x15 (21)
+-> values in [ 322424844 (0x1) - 322424824 (0x15) ]
+-> if the result of the sub is inferior to 0x15 then decrypt function is called with this result
+-> else decrypt is called with a random value 
+
+decrypt()
+-> decrypt set a buffer (local_21) with fixed value ( 0x517d7c75 0x60736667 0x7e73667b 0x7d7c6133 = Q}|u`sfg~sf{}|a3 )
+-> then a XOR is called on each value, with a random value or the result with the previous comparizon (ex: 0x15)
+example: 
+0x517d7c75 0x60736667 0x7e73667b 0x7d7c6133 --- XOR 0x15 ---> 0x44686960  0x75667372  0x6b66736e  0x68697426
+			 "Q}|u`sfg~sf{}|a3" --- XOR 0x15 ---> "Dhi`ufsrkfsnhit&" 
+-> then compare the encrypted buffer with the string "Congratulations!"
+-> if the string are equals then /bin/sh is executed -> GG
+
+
+=> Check values in [ 322424844 (0x1) - 322424846 (0x9) ] and [ 322424829 (0x10) -  322424824 (0x15) ] (16 values in total)
+=> found 322424827 -> GG
 
