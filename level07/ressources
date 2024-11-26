@@ -1,0 +1,107 @@
+/***********************/
+/* P R O T E C T I O N */
+/***********************/
+
+- Partial RELRO
+- Canrary found 
+
+/********************************/
+/*	   R E V E R S E	*/
+/********************************/
+
+local_1bc[100] = {0}
+local_28[20] = {0}
+
+-> set local_1bc {0}
+-> set param2 (args) a {0}
+-> set env = {0}
+
+loop
+-> wait command of 0x14
+-> get len(input)
+
+store number:
+	-> param1 = buffer[100]
+	-> number uint
+	-> index uint
+	-> index % 3 != 0 && (number >> 0x18 != 0xb7 (183))	
+	-> (param1 + index) = number
+
+read number:
+	-> param1 = buffer[100]
+	-> index uint
+	-> print with buffer[index] (%u) <- possible to read stack 
+
+
+/****************/
+/*   I N F O S  */
+/****************/
+
+segfault read command -> ~680
+
+buffer[100]
+start buffer:	0xffffd574
+
+
+
+/*****************************/
+/*	S T R A T E G Y      */
+/*****************************/
+
+Strategy -> overwrite value with store on specific index 
+find where index superior at 100 write
+
+-> Possible to write with negatif indexes  
+
+
+Partial RELRO protect on
+
+
+- Try to overwrite ret addr of store_number / read_number
+1. find ret addr (ebp + 4)
+
+(gdb) x $ebp + 4
+0xffffd54c:	0x080488ef
+
+2. Try to overwrite eip => F A I L  
+-> can overwrite ebp but not eip index with -11
+
+3. Try to overwrite something else, ex: %u -> F A I L 
+0xffffd4f0:	0x08048ad0 <- point to "%u"
+-> because %u is in rodata section 
+
+4. GOT.PLT 
+create payload in buffer (stack) and overwrite printf plt
+ 
+start buffer:	0xffffd574
+
+print.got.plt: 0x804a000
+
+0x804a000 <printf@got.plt>:	0xf7e78480
+
+0xffffd574 - 0x0804a000 = F7FB3574 (4160435572)
+
+-4294967295
+-4260435572
+-4261435572
+-4261335571 <- 0x8048d24
+-4261334571 <- 0x8048d24
+-4261333571 <- 0x8048d24
+-4261333339 <- 0x8048d24
+
+
+-4261333349 <- 0x804afe0
+
+
+-4261333390
+
+
+
+
+
+5. return addr main -> F A I L  
+can overwrite ebp 113 but not ret addr 114
+
+
+- Overwrite got.plt -> partial RELRO protect only the .got
+- overwrite other value with index/number  
