@@ -95,7 +95,15 @@ print.got.plt: 0x804a000
 
 -4261333390
 
+-4261334364 -> 0x804a004 <fflush@got.plt>
+-4261334363 -> 0x804a008 <getchar@got.plt>
 
+-> Works correctly 
+with store:
+	number: 55
+	index: -4261334363 
+Program received signal SIGSEGV, Segmentation fault.
+0x00000037 in ?? ()
 
 
 
