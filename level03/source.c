@@ -87,6 +87,6 @@ int main(int argc, char **argv) {
 	puts("***********************************");
 	printf("Password:");
 	scanf("%d", &number);
-	test();
+	test(number);
 	return 0;
-}
+

