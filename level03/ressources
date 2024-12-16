@@ -1,81 +1,36 @@
 
+=> We have a switch on the result (322424845 - argv[1)) on the test() function
+=> This result is comapred to a range of values from [0x1 (1) to 0x9 (9)] and [0x10 (16) to 0x15 (21)]
+=> The difference (322424845 - argv[1]) is then used by the decrypt function to do a XOR on a buffer
+=> The buffer is initialised to "Q}|u`sfg~sf{}|a3" (0x517d7c75 0x60736667 0x7e73667b 0x7d7c6133)
+=> A XOR is applied to each element of the buffer
+=> The final buffer is compared to the string "Congratulations!"
+=> If the strings are equal a shell is executed else an erreror message is printed
+  
 
-/**************************/
-/*   P R O T E C T I O N  */
-/**************************/
+=> Found the value (x - argv[1]) wich determine the switch instruction
+-> breakpoint at the SUB instruction before the switch
+0x08048755 <+14>:	sub    %eax,%ecx
 
-RELRO           STACK CANARY      NX           
-Partial RELRO   Canary found      NX enabled    
+(gdb) i r
+eax            0xf7fceff4	-134418444
+ecx            0x1337d00d	322424845
 
+=> The value is 322424845
+=> Then we can find the different value that match the switch instructions
+322424845 - 0x1 (1)
+...
+322424845 - 0x9 (9)
+322424845 - 0x10 (16)
+...
+322424845 - 0x15 (21)
+possibles values: [ 322424844 (-1) - 322424846 (9) ] and [ 322424829 (-16) -  322424824 (-21) ] (16 values in total)
 
-/*****************/
- 1. Partial RELRO
-/*****************/
-
--> protect relocations dynamic tables against modifications
--> can't overwrite GOT - Global Offset Table
-
-- 2 levels:
-	- Partial - protect only some metadatas, got is still editable
-	- Full - protect .dynamic sections 
-
-limits:
-- Rop Return Oriented Programming
-- Dependant of dynamic loader
-
-
-/**************/
- 2.  Canary
-/**************/
--> Protect the return addres to be overwrite by a bufferoverflow on the stack
--> generate a value before the ret addr
-	-> random
-	-> null string to stop shell code
-	-> dynamically calculate with a XOR
-
-limits:
-- Canary Value can be leaked/found
-- Limited to the stack 
-
-
-/*********************/
- 3. No eXecution - NX
-/*********************/ 
--> give sections permissions (r,w,x)
--> protect zones to code execution like the heap, stack and sections (.bass, data)
-
-Limits:
--> still possible to use executable code in other zones like .text
--> ROP Return Oriented Programing -> fragments binary code
-
-
-/********************************************************************/
-/*			  R E V E R S E				    */
-/********************************************************************/
-
-main()
--> wait input for password
--> scanf convert input to %d decimal
-   0x080488b1 <+87>:	mov    eax,0x8048a85 (%d)
--> value of input saved at 0xffffd72c
-
-test()
--> found comparizon in test() function 
--> check if a value ((0x1337d00d: 322424845) sub input) < 0x15 (21)
--> values in [ 322424844 (0x1) - 322424824 (0x15) ]
--> if the result of the sub is inferior to 0x15 then decrypt function is called with this result
--> else decrypt is called with a random value 
-
-decrypt()
--> decrypt set a buffer (local_21) with fixed value ( 0x517d7c75 0x60736667 0x7e73667b 0x7d7c6133 = Q}|u`sfg~sf{}|a3 )
--> then a XOR is called on each value, with a random value or the result with the previous comparizon (ex: 0x15)
-example: 
 0x517d7c75 0x60736667 0x7e73667b 0x7d7c6133 --- XOR 0x15 ---> 0x44686960  0x75667372  0x6b66736e  0x68697426
-			 "Q}|u`sfg~sf{}|a3" --- XOR 0x15 ---> "Dhi`ufsrkfsnhit&" 
--> then compare the encrypted buffer with the string "Congratulations!"
--> if the string are equals then /bin/sh is executed -> GG
+			 "Q}|u`sfg~sf{}|a3" --- XOR 0x15 ---> "Dhi`ufsrkfsnhit&"
 
-
-=> Check values in [ 322424844 (0x1) - 322424846 (0x9) ] and [ 322424829 (0x10) -  322424824 (0x15) ] (16 values in total)
-=> found 322424827 -> GG
-
+=> To determine wich value pick let's try to transform the first letter of the buffer "Q" to "C" of "Congratulations!"  
+ 
+=> From the value "Q" 0x51 try differents values with XOR: https://xor.pw/# 
+=> We see that 0x51 ^ 18 = 0x43 "C"
+=> Then we do 322424845 - 18 to have our input = 322424827
