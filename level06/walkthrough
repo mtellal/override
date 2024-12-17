@@ -1,0 +1,42 @@
+
+=> We have a fgest (login part) that fill 32 bytes in a buffer
+=> We have a scanf that get an unsigned int (number)
+=> These variables are then used in the auth function()
+=> The buffer is encrypted with an XOR on a specific value (enc_value) that is updated for each char in the buffer
+=> It is difficult to break the encryption and the repetition of XOR simply by deducing it
+
+=> First we need to break just after the ptrace to bypass the protection ("Tampering detected")
+   0x080487b5 <+109>:	call   0x80485f0 <ptrace@plt>
+   0x080487ba <+114>:	cmp    $0xffffffff,%eax
+
+b *0x080487ba
+
+=> Then we break at the final comparison 
+   0x08048866 <+286>:	cmp    -0x10(%ebp),%eax
+   0x08048869 <+289>:	je     0x8048872 <auth+298>
+   0x0804886b <+291>:	mov    $0x1,%eax
+   0x08048870 <+296>:	jmp    0x8048877 <auth+303>
+   0x08048872 <+298>:	mov    $0x0,%eax
+
+b *0x08048866
+
+=> We need to write a login more than 5 bytes to trigger the breakpoint
+=> Let's try with "AAAAAA" 
+=> On the first breakpoint we set eax to 0 to bypass the protection
+Breakpoint 1, 0x080487ba in auth ()
+(gdb) i r
+eax            0xffffffff	-1
+...
+set $eax=0
+
+=> We then hit the second breakpoint 
+Breakpoint 2, 0x08048866 in auth ()
+
+=> We check the value compared to eax (ebp - 0x10)
+(gdb) x $ebp - 0x10
+0xffffd6c8:	0x005f0c3a (6229050)
+
+=> We have a the serial corresponding to the login "AAAAAA"
+=> Let's try 
+login:  "AAAAAA"
+serial: "6229050"
