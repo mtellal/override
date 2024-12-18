@@ -1,0 +1,59 @@
+void log_wrapper(FILE *log_file, char *str, char *arg) {
+
+	char buffer[254];
+
+
+	strcpy(buffer, str);
+	int l = strlen(buffer);
+
+	snprintf(buffer + l - 1, 254 - l -1, arg);
+	int nl = strcspn(buffer, "\n");
+	buffer[nl] = '\0';
+	fprintf(log_file, "LOG: %s\n", buffer);
+	return ;
+}
+
+int main(int argc, char **argv) {
+
+	char buffer[99];
+
+	if (argc != 2)
+		printf("Usage: %s filename\n", argv[0]);
+
+	FILE *log_file = fopen("./backup/.log", "w");
+	if (log_file == 0) {
+		printf("ERROR: Failed to open %s\n", "./backups/.log");
+		exit(1);
+	}
+
+	log_wrapper(log_file, "Starting back up: ", argv[1]);
+	stream = fopen((char*)argv[1], "r");
+	if (stream == (FILE*)0) {
+		printf("ERROR: Failed to open %s\n", argv[1]);
+		exit(1);
+	}
+
+	strncpy(buffer, "./backups/", 11);
+	int len = strlen(buffer);
+	strncat(buffer, (char*)argv[1], 99 - len - 1);
+
+	int fd = open(buffer, O_WRONLY | O_CREAT | O_TRUNC, 0660);
+	if (fd < 0) {
+		printf("ERROR: Failed to open %s%s\n", "./backups/", argv[1]);
+		exit(1);
+	}	
+
+	while (true) {
+		char c = (char)fgetc(stream);
+		if (c == -1)
+			break;
+		write(fd, c, 1);
+	}
+
+	log_wrapper(log_file, "Finished back up ", argv[1]);
+
+	fclose(stream);
+	close(fd);
+
+	return 0;
+}
