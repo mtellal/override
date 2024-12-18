@@ -6,40 +6,41 @@ void secret_backdoor(void) {
 	return;
 }
 
-void set_msg(char **input)
+void set_msg(char *buffer)
 {
-	char buff[1024];
+	char input[1024];
 	
-	memset(buff, 0, 1024);
+	memset(input, 0, 1024);
 	puts(">: Msg @Unix-Dude");
 	printf(">>: ");
-	fgets(buff, 1024, _stdin);
-	strncpy(*input, buff, (long)*(int *)(*input + 180));
+	fgets(input, 1024, _stdin);
+	strncpy(buffer, input, *(size_t *)((char *)(buffer + 180)));
 	return;
 }
 
-void set_username(char **input) {
+void set_username(char *inputer) {
 
-	memset(*input, 0);
+	memset(inputer, 0);
 	puts(">: Enter your username");
 	printf(">>: ");
-	fgets(*input, 128, _stdin);
+	fgets(inputer, 128, _stdin);
 
-	for (int i = 0; (i < 41 && *input[i] != '\0'); i++) {
-	  *(char *)(*input + 140 + (long)i) = *input[i];
+	for (int i = 0; (i < 41 && inputer[i] != '\0'); i++) {
+	  *(char *)(inputer + 140 + (long)i) = *inputer[i];
+	  inputer[i + 140] = inputer[i];
 	  i++:
 	}
-	printf(">: Welcome, %s", *input + 140);
+	printf(">: Welcome, %s", *inputer + 140);
 	return;
 }
 
 
 void handle_msg(void) {
 
-	char buffer[140];
+	char inputer[140];
 
-	set_username(&buffer);
-	set_msg(&buffer);
+	set_username(inputer);
+	set_msg(inputer);
 	puts(">: Msg sent!");
 }
 

