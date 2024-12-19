@@ -1,24 +1,21 @@
-int decrypt(int number) {
+void decrypt(int number) {
 
-	int	res;
 	char	buffer[17] = { 0 };
-	int	len;
 
-	memset(buffer, "Q}|u`sfg~sf{}|a3", 17);	
+	memcpy(buffer, "Q}|u`sfg~sf{}|a3", 17);	
 	i = 0;
 	while (i < 17) {
 		buffer[i] = buffer[i] ^ number;	
 		i++;
 	}
 	if (!strcmp(buffer, "Congratulations!")) { 
-		ret = system("/bin/sh");
+		system("/bin/sh");
 	}
 	else
-		ret = puts("\nInvalid Password");
-	return ret;
+		puts("\nInvalid Password");
 }
 
-int test(int number)  {
+void test(int number)  {
 
 	int res;
 

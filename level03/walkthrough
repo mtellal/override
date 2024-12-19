@@ -1,14 +1,15 @@
 
-=> We have a switch on the result (322424845 - argv[1)) on the test() function
+=> We have a switch on the test() function that launch decrypt with different values
+=> The switch value is (322424845 - argv[1))
 => This result is comapred to a range of values from [0x1 (1) to 0x9 (9)] and [0x10 (16) to 0x15 (21)]
-=> The difference (322424845 - argv[1]) is then used by the decrypt function to do a XOR on a buffer
+=> The difference (322424845 - argv[1]) is then used by the decrypt function as parameter
 => The buffer is initialised to "Q}|u`sfg~sf{}|a3" (0x517d7c75 0x60736667 0x7e73667b 0x7d7c6133)
 => A XOR is applied to each element of the buffer
 => The final buffer is compared to the string "Congratulations!"
-=> If the strings are equal a shell is executed else an erreror message is printed
-  
+=> If the strings are equal a shell is executed else an error message is printed
 
-=> Found the value (x - argv[1]) wich determine the switch instruction
+
+=> First we to found the value (x - argv[1]) wich determine the switch instruction
 -> breakpoint at the SUB instruction before the switch
 0x08048755 <+14>:	sub    %eax,%ecx
 
@@ -24,13 +25,13 @@ ecx            0x1337d00d	322424845
 322424845 - 0x10 (16)
 ...
 322424845 - 0x15 (21)
-possibles values: [ 322424844 (-1) - 322424846 (9) ] and [ 322424829 (-16) -  322424824 (-21) ] (16 values in total)
 
-0x517d7c75 0x60736667 0x7e73667b 0x7d7c6133 --- XOR 0x15 ---> 0x44686960  0x75667372  0x6b66736e  0x68697426
-			 "Q}|u`sfg~sf{}|a3" --- XOR 0x15 ---> "Dhi`ufsrkfsnhit&"
+possibles values:	[ 322424844 (1) - 322424846 (9) ] 
+and 				[ 322424829 (16) -  322424824 (21) ] 
 
-=> To determine wich value pick let's try to transform the first letter of the buffer "Q" to "C" of "Congratulations!"  
+=> To determine wich value pick 
+=> Let's try to transform the first letter of the buffer "Q" to "C" of "Congratulations!"  
  
-=> From the value "Q" 0x51 try differents values with XOR: https://xor.pw/# 
-=> We see that 0x51 ^ 18 = 0x43 "C"
-=> Then we do 322424845 - 18 to have our input = 322424827
+=> From the value "Q" 0x51 = 81d try differents values with XOR: https://xor.pw/# 
+=> We see that 0x51 ^ 0x12 (18d) = 0x43 "C" https://www.ascii-code.com/fr
+=> Then we do 322424845 - 18 = 322424827
