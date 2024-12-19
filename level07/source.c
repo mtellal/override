@@ -20,11 +20,11 @@ unsigned int get_unum() {
 
 int	read(char *buffer) {
 
-	int	index;
+	unsigned int	index;
 
 	print(" Index: ");
 	index = get_unum();
-	printf(" Number at data[%u] is %u\n",iVar1,*(undefined4 *)(iVar1 * 4 + param_1));
+	printf(" Number at data[%u] is %u\n", index, *(unsigned int *)(buffer + (index * 4)));
 	return 0;
 }
 
@@ -42,7 +42,7 @@ int	store_number(char *buffer) {
 		puts(" *** ERROR! ***");
 		puts("   This index is reserved for wil!");
 		puts(" *** ERROR! ***");
-		ret = 1;
+		err = 1;
 	}
 	else {
 		*(unsigned int *)(buffer + (index * 4)) = number;
@@ -66,11 +66,11 @@ int main(int argc, char **argv) {
 		ret = 1;
 		fgets(buff_cmd, 20, stdin);
 
-		if (!strcmp(buff_cmd, "store"))
+		if (!strncmp(buff_cmd, "store", 5))
 			ret = store_number(buffer);
-		else if (!strcmp(buff_cmd, "read"))
+		else if (!strcmp(buff_cmd, "read", 4))
 			ret = read_number(buffer);
-		else if (!strcmp(buff_cmd, "quit"))
+		else if (!strncmp(buff_cmd, "quit", 4))
 			return 0;
 
 		if (ret == 0) 
@@ -79,5 +79,4 @@ int main(int argc, char **argv) {
 			printf(" Failed to do %s command\n", buff_cmd);
 		memset(buff_cmd, 0, 20);	
 	}
-	return 0;
 }

