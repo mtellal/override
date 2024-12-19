@@ -1,12 +1,14 @@
 int main(int argc, char **argv) {
 
-	FILE *file;
+	FILE *file_pass;
 	char buff_flag[48];
 	char username[100];
 	char password[112];
 
 	int line_ret;
-
+	memset(buff_flag, 0, 48);
+	memset(username, 0, 100);
+	memset(password, 0, 112);
 	file_pass = fopen("/home/users/level03/.pass", "r");
 	if (!file_pass) {
 		fwrite("ERROR: failed to open password file\n", 1, 36, stderr);
