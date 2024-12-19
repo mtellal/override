@@ -22,16 +22,56 @@ int main(int argc, char **argv) {
 		while (sys_call != 11) {
 			wait(&status);
 			// ((status & 127 == 0) || (((status & 127) + 1) >> 1) > 0)
-			if (WIFEXITED(&status) == 0 || WIFSIGNALED(&status)) { 
+			if (WIFEXITED(&status) == 0 || WIFSIGNALED(&status)) {
 				// if the child is terminated normally or by a signal
 				puts("child is exiting...");
 				return 0;
 			}
-			sys_call = ptrace(PTRACE_PEEKUSER, pid, 44, 0); // read the sys call of the child proces 
+			sys_call = ptrace(PTRACE_PEEKUSER, pid, 44, 0); // read the sys call of the child proces
 		}
 		puts("no exec() for you");
-		kill(pid); 
+		kill(pid);
 	}
 
+	return 0;
+}
+
+--------------------------------------------
+
+int main(void)
+{
+	int i;
+	uint child_status;
+	char buffer[128];
+	long trace_syscall;
+	pid_t child_pid;
+
+	child_pid = fork();
+	trace_syscall = 0;
+	child_status = 0;
+
+	if (child_pid == 0) {
+		prctl(1,1); // Ensure child dies with the parent
+		ptrace(PTRACE_TRACEME,0,0,0);
+		puts("Give me some shellcode, k");
+		gets(buffer);
+	}
+
+	else {
+		while (1) {
+			wait(&child_status);
+			if ((child_status & 0x7F) == 0 ||
+				((child_status & 0x7F) + 1) >> 1 > 0) {
+				puts("child is exiting...");
+				return 0;
+			}
+			trace_syscall = ptrace(PTRACE_PEEKUSER,child_pid,0x2c,0);
+			if (traced_syscall == 11) {
+				puts("no exec() for you");
+				kill(child_pid, SIGKILL);
+				break;
+			}
+		}
+	}
 	return 0;
 }

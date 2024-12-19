@@ -15,3 +15,23 @@ int main(int argc, char **argv) {
 	}
 	return num == 0x149c;
 }
+
+----------------------------------------------
+
+bool main(void)
+{
+	int buffer[4];
+
+	puts("***********************************");
+	puts("* \t     -Level00 -\t\t  *");
+	puts("***********************************");
+	printf("Password:");
+	if (buffer[0] != 0x149c) { // 0x149c == 5276 in decimal
+		puts("\nInvalid Password!");
+	}
+	else {
+		puts("\nAuthenticated!");
+		system("/bin/sh");
+	}
+	return buffer[0] != 0x149c;
+}

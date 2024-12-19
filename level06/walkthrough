@@ -11,7 +11,7 @@
 
 b *0x080487ba
 
-=> Then we break at the final comparison 
+=> Then we break at the final comparison
    0x08048866 <+286>:	cmp    -0x10(%ebp),%eax
    0x08048869 <+289>:	je     0x8048872 <auth+298>
    0x0804886b <+291>:	mov    $0x1,%eax
@@ -21,7 +21,7 @@ b *0x080487ba
 b *0x08048866
 
 => We need to write a login more than 5 bytes to trigger the breakpoint
-=> Let's try with "AAAAAA" 
+=> Let's try with "AAAAAA"
 => On the first breakpoint we set eax to 0 to bypass the protection
 Breakpoint 1, 0x080487ba in auth ()
 (gdb) i r
@@ -29,7 +29,7 @@ eax            0xffffffff	-1
 ...
 set $eax=0
 
-=> We then hit the second breakpoint 
+=> We then hit the second breakpoint
 Breakpoint 2, 0x08048866 in auth ()
 
 => We check the value compared to eax (ebp - 0x10)
@@ -37,6 +37,43 @@ Breakpoint 2, 0x08048866 in auth ()
 0xffffd6c8:	0x005f0c3a (6229050)
 
 => We have a the serial corresponding to the login "AAAAAA"
-=> Let's try 
+=> Let's try
 login:  "AAAAAA"
 serial: "6229050"
+
+---------------------------------------------------------------------
+
+The auth() function calculates the serial as follows:
+
+1. Initialization:
+
+	```c
+	local_serial = ((int)login[3] ^ 0x1337) + 0x5eeded;
+	```
+	- login[3]: The 4th character of the input login is XOR-ed with 0x1337 and then added to 0x5eeded.
+
+2. Loop for Serial Calculation:
+	For each character of the login:
+	```c
+	local_serial += ((int)login[i] ^ local_serial) % 1337;
+	```
+	- The serial is updated iteratively with each character of the login:
+	- The current character (login[i]) is XOR-ed with the current serial value.
+	- The result is reduced modulo 1337 and added to the serial.
+
+3. Script to calculate the serial
+
+	```python
+	import sys
+
+	def calculate_serial(login):
+		local_serial = (ord(login[3]) ^ 0x1337) + 0x5eeded
+		for char in login:
+			local_serial += (ord(char) ^ local_serial) % 1337
+		return local_serial
+
+	login = sys.argv[1]
+	serial = calculate_serial(login)
+	print(f"Login: {login}")
+	print(f"Serial: {serial}")
+	```

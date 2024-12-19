@@ -34,3 +34,75 @@ int main(int argc, char **argv) {
 	}
 	return ret;
 }
+
+--------------------------------------------
+
+int main(void)
+{
+	int ret;
+	int i;
+	char buffer_password[64];
+	int validition;
+
+	puts("********* ADMIN LOGIN PROMPT *********");
+	printf("Enter validition: ");
+	fgets(&a_user_name,256,stdin);
+	validition = verify_user_name();
+	if (validition == 0) {
+		puts("Enter Password: ");
+		fgets(buffer_password,100,stdin);
+		validition = verify_user_pass(buffer_password);
+		if ((validition == 0) || (validition != 0)) {
+			puts("nope, incorrect password...\n");
+			ret = 1;
+		}
+		else {
+			ret = 0;
+		}
+	}
+	else {
+		puts("nope, incorrect username...\n");
+		ret = 1;
+	}
+	return ret;
+}
+
+int verify_user_name(void)
+{
+	int i;
+	byte *input_username;
+	byte *expected_username;
+
+	puts("verifying username....\n");
+	i = 7;
+	input_username = &a_user_name;
+	expected_username = (byte *)"dat_wil";
+	while (i != 0) {
+		if (*input_pointer != *expected_username) {
+			return -1;
+		}
+		i--;
+		input_pointer++;
+		expected_username++;
+	}
+	return 0;
+}
+
+
+int verify_user_pass(byte *input_password)
+{
+	int i;
+	byte *expected_password;
+
+	i = 5;
+	expected_password = (byte *)"admin";
+	while (i != 0) {
+		if (*input_password != *expected_password) {
+			return -1;
+		}
+		i--;
+		input_password++;
+		expected_password++;
+	}
+	return 0;
+}

@@ -4,8 +4,8 @@ void clear_stdin() {
 	var = getchar();
 	while (var != -1) {
 		if ((char)var == '\n')
-			return 
-		var = getchar(); 
+			return
+		var = getchar();
 	}
 }
 
@@ -15,7 +15,7 @@ unsigned int get_unum() {
 	fflush(stdout);
 	scanf("%u", &num);
 	clear_stdin();
-	return num;	
+	return num;
 }
 
 int	read(char *buffer) {
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 
 	memset(buffer, 0, 100);
 	memset(cmd_buff, 0, 20);
-	puts("----------------------------------------------------\n  Welcome to wil\'s crappy number stora ge service!   \n----------------------------------------------------\n Commands:                                          \n    store - store a number into the data storage    \n    read  - read a number from the data storage     \n    quit  - exit the program                        \n----------------------------------------------------\n   wil has reserved some storage :>                 \n----------------------------------------------------\n");	
+	puts("----------------------------------------------------\n  Welcome to wil\'s crappy number stora ge service!   \n----------------------------------------------------\n Commands:                                          \n    store - store a number into the data storage    \n    read  - read a number from the data storage     \n    quit  - exit the program                        \n----------------------------------------------------\n   wil has reserved some storage :>                 \n----------------------------------------------------\n");
 	while (true) {
 
 		printf("Input command: ");
@@ -73,10 +73,100 @@ int main(int argc, char **argv) {
 		else if (!strncmp(buff_cmd, "quit", 4))
 			return 0;
 
-		if (ret == 0) 
+		if (ret == 0)
 			printf(" Completed %s command successfully\n", buff_cmd);
 		else
 			printf(" Failed to do %s command\n", buff_cmd);
-		memset(buff_cmd, 0, 20);	
+		memset(buff_cmd, 0, 20);
 	}
+}
+
+
+------------------------------------------------------------
+
+int main(int argc, char *argv[], char *envp[]) {
+	char command[20];
+	int dataStorage[100];
+	int inputIndex;
+	int operationStatus;
+
+	printf(
+		"----------------------------------------------------\n"
+		"  Welcome to wil's crappy number storage service!   \n"
+		"----------------------------------------------------\n"
+		" Commands:                                          \n"
+		"    store - store a number into the data storage    \n"
+		"    read  - read a number from the data storage     \n"
+		"    quit  - exit the program                        \n"
+		"----------------------------------------------------\n"
+		"   wil has reserved some storage :>                 \n"
+		"----------------------------------------------------\n"
+	);
+
+	while (1) {
+		printf("Input command: ");
+		fgets(command, sizeof(command), stdin);
+		command[strcspn(command, "\n")] = '\0'; // Remove newline character.
+
+		if (strcmp(command, "store") == 0) {
+			operationStatus = store_number(dataStorage);
+		} else if (strcmp(command, "read") == 0) {
+			operationStatus = read_number(dataStorage);
+		} else if (strcmp(command, "quit") == 0) {
+			return 0;
+		} else {
+			printf("Invalid command\n");
+			continue;
+		}
+
+		if (operationStatus == 0) {
+			printf("Completed %s command successfully\n", command);
+		} else {
+			printf("Failed to execute %s command\n", command);
+		}
+	}
+}
+
+int read_number(int *storage)
+{
+	int i;
+
+	printf(" Index: ");
+	i = get_unum();
+	printf(" Number at data[%u] is %u\n",i,storage[i]);
+	return 0;
+}
+
+int store_number(int *storage)
+{
+	uint number;
+	uint i;
+	int ret;
+
+	printf(" Number: ");
+	number = get_unum();
+	printf(" Index: ");
+	i = get_unum();
+	if ((i % 3 == 0) || (number >> 24 == 0xb7)) {
+		puts(" *** ERROR! ***");
+		puts("   This index is reserved for wil!");
+		puts(" *** ERROR! ***");
+		ret = 1;
+	}
+	else {
+		storage[i] = number;
+		ret = 0;
+	}
+	return ret;
+	}
+
+undefined4 get_unum(void)
+{
+	undefined4 buffer[3];
+
+	buffer[0] = 0;
+	fflush(stdout);
+	__isoc99_scanf(&DAT_08048ad0,buffer);
+	clear_stdin();
+	return buffer[0];
 }

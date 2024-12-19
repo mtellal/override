@@ -26,12 +26,32 @@ ecx            0x1337d00d	322424845
 ...
 322424845 - 0x15 (21)
 
-possibles values:	[ 322424844 (1) - 322424846 (9) ] 
-and 				[ 322424829 (16) -  322424824 (21) ] 
+possibles values:	[ 322424844 (1) - 322424846 (9) ]
+and 				[ 322424829 (16) -  322424824 (21) ]
 
-=> To determine wich value pick 
-=> Let's try to transform the first letter of the buffer "Q" to "C" of "Congratulations!"  
- 
-=> From the value "Q" 0x51 = 81d try differents values with XOR: https://xor.pw/# 
+=> To determine wich value pick
+=> Let's try to transform the first letter of the buffer "Q" to "C" of "Congratulations!"
+
+=> From the value "Q" 0x51 = 81d try differents values with XOR: https://xor.pw/#
 => We see that 0x51 ^ 0x12 (18d) = 0x43 "C" https://www.ascii-code.com/fr
 => Then we do 322424845 - 18 = 322424827
+
+------------------------------------------------------------------
+
+Reverse XOR operation
+
+1. test Function:
+
+	- The function uses the difference between param_2 and param_1 to determine which case in the switch statement will be executed.
+	- The values of param_1 (input) and param_2 (given as 322424845) are used in a calculation to guide execution.
+
+2. Script
+
+	```bash
+	#!/bin/bash
+	for ((i=322424844; i>=322424823; i--)); do
+	echo "Test avec $i"
+	(echo "$i"; cat) | ./level03
+	done
+	````
+

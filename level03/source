@@ -2,13 +2,13 @@ void decrypt(int number) {
 
 	char	buffer[17] = { 0 };
 
-	memcpy(buffer, "Q}|u`sfg~sf{}|a3", 17);	
+	memcpy(buffer, "Q}|u`sfg~sf{}|a3", 17);
 	i = 0;
 	while (i < 17) {
-		buffer[i] = buffer[i] ^ number;	
+		buffer[i] = buffer[i] ^ number;
 		i++;
 	}
-	if (!strcmp(buffer, "Congratulations!")) { 
+	if (!strcmp(buffer, "Congratulations!")) {
 		system("/bin/sh");
 	}
 	else
@@ -87,3 +87,123 @@ int main(int argc, char **argv) {
 	test(number);
 	return 0;
 
+-----------------------------------------------------------------------------------
+
+int main(int argc, char **argv)
+{
+	uint seed;
+
+	seed = time((time_t *)0x0);
+	srand(seed);
+	puts("***********************************");
+	puts("*\t\tlevel03\t\t**");
+	puts("***********************************");
+	printf("Password:");
+	test(argv[1]);
+	return 0;
+}
+
+
+	void test(int input)
+{
+	EVP_PKEY_CTX *context;
+	uchar *output_data;
+	size_t *output_len;
+	uchar *input_data;
+	size_t input_len;
+	int local_value
+
+	context = (EVP_PKEY_CTX *)(local_value - input);
+	switch(context) {
+	default:
+		context = (EVP_PKEY_CTX *)rand();
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)1:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)2:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)3:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)4:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)5:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)6:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)7:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)8:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)9:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)16:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)17:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)18:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)19:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)20:
+		decrypt(context,output_data,output_len,input_data,input_len);
+		break;
+	case (EVP_PKEY_CTX *)21:
+		decrypt(context,output_data,output_len,input_data,input_len);
+	}
+	return;
+}
+
+int decrypt(EVP_PKEY_CTX *ctx,uchar *out,size_t *outlen,uchar *in,size_t inlen)
+{
+	byte value;
+	uint loop;
+	int result;
+	byte *context_ptr;
+	byte *message_ptr;
+	bool is_less_than;
+	bool is_igual_to;
+	uint i;
+	byte buffer[17];
+
+	context_ptr = buffer;
+
+	while (loop--) {
+		value = *context_ptr;
+		context_ptr++;
+	}
+	i = 0;
+	while (i < ~i - 1) {
+		buffer[i] = (byte)ctx ^ buffer[i];
+		i++;
+	}
+	result = 0x11;
+	context_ptr = buffer;
+	message_ptr = (byte *)"Congratulations!";
+	while (result--) {
+		is_less_than = *context_ptr < *message_ptr;
+		is_equal_to = *context_ptr == *message_ptr;
+		context_ptr++;
+		message_ptr++;
+	}
+
+	if ((!is_less_than && !is_igual_to) == is_less_than) {
+		result = system("/bin/sh");
+	}
+	else {
+		result = puts("\nInvalid Password");
+	}
+}

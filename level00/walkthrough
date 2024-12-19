@@ -3,3 +3,8 @@
 -> The condition require a number equal 0x149c (5276)
 -> Try with this number
 
+--------------------------------------------
+
+The program checks if the input matches the hardcoded value 5276:
+- If the input does not match, it prints Invalid Password!.
+- If the input matches, it prints Authenticated! and spawns a shell using the system("/bin/sh") command.

