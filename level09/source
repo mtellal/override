@@ -14,33 +14,31 @@ void set_msg(char *buffer)
 	puts(">: Msg @Unix-Dude");
 	printf(">>: ");
 	fgets(input, 1024, _stdin);
-	strncpy(buffer, input, *(size_t *)((char *)(buffer + 180)));
+	strncpy(buffer, input, buffer[180]);
 	return;
 }
 
-void set_username(char *inputer) {
+void set_username(char *input) {
 
-	memset(inputer, 0);
+	memset(input, 0);
 	puts(">: Enter your username");
 	printf(">>: ");
-	fgets(inputer, 128, _stdin);
+	fgets(input, 128, _stdin);
 
-	for (int i = 0; (i < 41 && inputer[i] != '\0'); i++) {
-	  *(char *)(inputer + 140 + (long)i) = *inputer[i];
-	  inputer[i + 140] = inputer[i];
-	  i++:
+	for (int i = 0; (i < 41 && input[i] != '\0'); i++) {
+	  input[i + 140] = input[i];
 	}
-	printf(">: Welcome, %s", *inputer + 140);
+	printf(">: Welcome, %s", *input + 140);
 	return;
 }
 
 
 void handle_msg(void) {
 
-	char inputer[140];
+	char input[140];
 
-	set_username(inputer);
-	set_msg(inputer);
+	set_username(input);
+	set_msg(input);
 	puts(">: Msg sent!");
 }
 
