@@ -1,10 +1,83 @@
--> Decompile the binary
--> See the condition to execute the shell
--> The condition require a number equal 0x149c (5276)
--> Try with this number
+# level00
 
---------------------------------------------
+## General Informations 
 
-The program checks if the input matches the hardcoded value 5276:
-- If the input does not match, it prints Invalid Password!.
-- If the input matches, it prints Authenticated! and spawns a shell using the system("/bin/sh") command.
+**Path** : `/home/users/level00/level00` </br>
+**File** : 
+```
+level00: setuid setgid ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0x20352633f776024748e9f8a5ebab6686df488bcf, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 level01 users 7280 Sep 10  2016 level00`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   No canary found   NX enabled    No PIE          No RPATH   No RUNPATH   /home/users/level00/level00
+```
+
+## Static Analysis
+
+After decompiling the binary in ghidra, we get the pseudo code below: 
+
+```
+bool main(void)
+{
+  int local_14 [4];
+  
+  puts("***********************************");
+  puts("* \t     -Level00 -\t\t  *");
+  puts("***********************************");
+  printf("Password:");
+  __isoc99_scanf(&DAT_08048636,local_14);
+  if (local_14[0] != 0x149c) {
+    puts("\nInvalid Password!");
+  }
+  else {
+    puts("\nAuthenticated!");
+    system("/bin/sh");
+  }
+  return local_14[0] != 0x149c;
+}
+```
+
+`main`
+  - Scans the user input and converting it to a `int`
+  - Compares the user input to the value `0x149c (5276)`
+  - If the values are equal a shell is launched with `system`
+
+Our objective is to pass the condition and launch the shell.
+
+## Vulnerability found 
+
+
+## Dynamic Analysis
+
+
+## Payload construction 
+
+After running the programm, we write the compared value `5276` as input:
+```
+***********************************
+* 	        -Level00 -		        *
+***********************************
+Password:5276
+```
+
+## Demonstration 
+
+```
+level00@OverRide:~$ ./level00 
+***********************************
+* 	     -Level00 -		  *
+***********************************
+Password:5276
+
+Authenticated!
+$ whoami
+level01
+```
+
+## Flag 
+
+```
+uSq2ehEGT6c9S24zbshexZQBXUGrncxn5sD5QfGL
+```

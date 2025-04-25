@@ -63,7 +63,8 @@ The auth() function calculates the serial as follows:
 
 3. Script to calculate the serial
 
-	```python
+	```
+	python
 	import sys
 
 	def calculate_serial(login):
