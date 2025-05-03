@@ -1,57 +1,234 @@
+# level03
 
-=> We have a switch on the test() function that launch decrypt with different values
-=> The switch value is (322424845 - argv[1))
-=> This result is comapred to a range of values from [0x1 (1) to 0x9 (9)] and [0x10 (16) to 0x15 (21)]
-=> The difference (322424845 - argv[1]) is then used by the decrypt function as parameter
-=> The buffer is initialised to "Q}|u`sfg~sf{}|a3" (0x517d7c75 0x60736667 0x7e73667b 0x7d7c6133)
-=> A XOR is applied to each element of the buffer
-=> The final buffer is compared to the string "Congratulations!"
-=> If the strings are equal a shell is executed else an error message is printed
+## General Informations 
+
+**Path** : `/home/users/level03/level03` </br>
+**File** : 
+```
+level03: setuid setgid ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0x9e834af52f4b2400d5bd38b3dac04d1a5faa1729, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 level04 users 7677 Sep 10  2016 level03`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   Canary found      NX enabled    No PIE          No RPATH   No RUNPATH   level03
+```
+
+## Static Analysis
+
+After decompiling the binary in ghidra, we get the pseudo code below: 
+
+```
+int decrypt(EVP_PKEY_CTX *ctx,uchar *out,size_t *outlen,uchar *in,size_t inlen)
+
+{
+  byte bVar1;
+  uint uVar2;
+  int iVar3;
+  byte *pbVar4;
+  byte *pbVar5;
+  int in_GS_OFFSET;
+  bool bVar6;
+  bool bVar7;
+  uint local_2c;
+  byte local_21 [17];
+  int local_10;
+  
+  local_10 = *(int *)(in_GS_OFFSET + 0x14);
+  local_21[0] = 0x51;
+  local_21[1] = 0x7d;
+  local_21[2] = 0x7c;
+  local_21[3] = 0x75;
+  local_21[4] = 0x60;
+  local_21[5] = 0x73;
+  local_21[6] = 0x66;
+  local_21[7] = 0x67;
+  local_21[8] = 0x7e;
+  local_21[9] = 0x73;
+  local_21[10] = 0x66;
+  local_21[0xb] = 0x7b;
+  local_21[0xc] = 0x7d;
+  local_21[0xd] = 0x7c;
+  local_21[0xe] = 0x61;
+  local_21[0xf] = 0x33;
+  local_21[0x10] = 0;
+  uVar2 = 0xffffffff;
+  pbVar4 = local_21;
+  do {
+    if (uVar2 == 0) break;
+    uVar2 = uVar2 - 1;
+    bVar1 = *pbVar4;
+    pbVar4 = pbVar4 + 1;
+  } while (bVar1 != 0);
+  local_2c = 0;
+  while( true ) {
+    bVar6 = local_2c < ~uVar2 - 1;
+    bVar7 = local_2c == ~uVar2 - 1;
+    if (!bVar6) break;
+    local_21[local_2c] = (byte)ctx ^ local_21[local_2c];
+    local_2c = local_2c + 1;
+  }
+  iVar3 = 0x11;
+  pbVar4 = local_21;
+  pbVar5 = (byte *)"Congratulations!";
+  do {
+    if (iVar3 == 0) break;
+    iVar3 = iVar3 + -1;
+    bVar6 = *pbVar4 < *pbVar5;
+    bVar7 = *pbVar4 == *pbVar5;
+    pbVar4 = pbVar4 + 1;
+    pbVar5 = pbVar5 + 1;
+  } while (bVar7);
+  if ((!bVar6 && !bVar7) == bVar6) {
+    iVar3 = system("/bin/sh");
+  }
+  else {
+    iVar3 = puts("\nInvalid Password");
+  }
+  if (local_10 == *(int *)(in_GS_OFFSET + 0x14)) {
+    return iVar3;
+  }
+                    /* WARNING: Subroutine does not return */
+  __stack_chk_fail();
+}
+
+void test(int param_1,int param_2)
+{
+  EVP_PKEY_CTX *pEVar1;
+  uchar *in_stack_ffffffd8;
+  size_t *in_stack_ffffffdc;
+  uchar *in_stack_ffffffe0;
+  size_t in_stack_ffffffe4;
+  
+  pEVar1 = (EVP_PKEY_CTX *)(param_2 - param_1);
+  switch(pEVar1) {
+  default:
+    pEVar1 = (EVP_PKEY_CTX *)rand();
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x1:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x2:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x3:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x4:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x5:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x6:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x7:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x8:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x9:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x10:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x11:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x12:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x13:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x14:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+    break;
+  case (EVP_PKEY_CTX *)0x15:
+    decrypt(pEVar1,in_stack_ffffffd8,in_stack_ffffffdc,in_stack_ffffffe0,in_stack_ffffffe4);
+  }
+  return;
+}
+
+undefined4 main(void)
+{
+  uint __seed;
+  
+  __seed = time((time_t *)0x0);
+  srand(__seed);
+  puts("***********************************");
+  puts("*\t\tlevel03\t\t**");
+  puts("***********************************");
+  printf("Password:");
+  __isoc99_scanf();
+  test();
+  return 0;
+}
+```
+
+- `main` prompts the user for a password and passes it to the `test` function.
+- `test`:
+	- Subtracts the user input from a fixed value `param_2`.
+	- Compares the result of this subtraction against 15 values (ranging from 0x1 to 0x15). If no match is found, a default case is used.
+	- The resulting value is passed as a parameter to the `decrypt` function.
+- `decrypt`:
+	- Contains an array initialized with predefined values: ```Q}|u`sfg~sf{}|a3```
+	- Each element pass by a XOR operation with the `ctx` parameter (the value from `test`).
+	- The decoded string is compared to `Congratulations!`. If they match, a shell is spawned; otherwise, an error message is displayed.
+
+The goal is to determine the correct `ctx` value that, when used to XOR-decode ```Q}|u`sfg~sf{}|a3```, produces `Congratulations!`. </br>
+There are two approaches: reverse the XOR operation or brute-force the 15 possible values. </br>
+
+Let's try reversing the XOR:
+From the line `ctx ^ local_21[local_2c]`, we know that: `ctx ^ 'Q' = 'C'` </br>
+Therefore, `ctx = ('Q' ^ 'C') = (81 ^ 67) = 18`. </br>
+So we need `ctx = 18` to transform `Q` into `C`.
 
 
-=> First we to found the value (x - argv[1]) wich determine the switch instruction
--> breakpoint at the SUB instruction before the switch
-0x08048755 <+14>:	sub    %eax,%ecx
+## Vulnerability found  
 
+## Dynamic Analysis
+
+We now know the result of the comparison in test must be `18`, but not the original input that leads to this result.
+This can be determined with dynamic analysis by setting a breakpoint where the subtraction happens:
+```
+(gdb) disas test
+...
+   0x08048755 <+14>:	sub    %eax,%ecx
+(gdb) b *0x08048755
+(gdb) r
+...
+Password:1
+...
 (gdb) i r
-eax            0xf7fceff4	-134418444
+eax            0x1	1
 ecx            0x1337d00d	322424845
+```
 
-=> The value is 322424845
-=> Then we can find the different value that match the switch instructions
-322424845 - 0x1 (1)
-...
-322424845 - 0x9 (9)
-322424845 - 0x10 (16)
-...
-322424845 - 0x15 (21)
+We observe that the value used in the subtraction is `322424845`.
+To produce `ctx = 18`, the password must be: `322424845 - 18 = 322424827`
 
-possibles values:	[ 322424844 (1) - 322424846 (9) ]
-and 				[ 322424829 (16) -  322424824 (21) ]
+## Payload construction 
 
-=> To determine wich value pick
-=> Let's try to transform the first letter of the buffer "Q" to "C" of "Congratulations!"
+Therefore, the correct password is `322424827`, which triggers the correct `ctx` and spawns a shell.
 
-=> From the value "Q" 0x51 = 81d try differents values with XOR: https://xor.pw/#
-=> We see that 0x51 ^ 0x12 (18d) = 0x43 "C" https://www.ascii-code.com/fr
-=> Then we do 322424845 - 18 = 322424827
+## Demonstration 
 
-------------------------------------------------------------------
+```
+level03@OverRide:~$ ./level03 
+***********************************
+*		level03		**
+***********************************
+Password:322424827
+$ whoami
+level04
+```
 
-Reverse XOR operation
-
-1. test Function:
-
-	- The function uses the difference between param_2 and param_1 to determine which case in the switch statement will be executed.
-	- The values of param_1 (input) and param_2 (given as 322424845) are used in a calculation to guide execution.
-
-2. Script
-
-	```bash
-	#!/bin/bash
-	for ((i=322424844; i>=322424823; i--)); do
-	echo "Test avec $i"
-	(echo "$i"; cat) | ./level03
-	done
-	````
-
+## Flag 
+```
+kgv3tkEb9h2mLkRsPkXRfc2mHbjMxQzvb2FrgKkf
+```
