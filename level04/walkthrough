@@ -26,7 +26,7 @@ undefined4 main(void)
   char *pcVar2;
   byte bVar3;
   uint local_a4;
-  char local_a0 [128];
+  char buffer [128];
   uint local_20;
   uint local_1c;
   long local_18;
@@ -34,7 +34,7 @@ undefined4 main(void)
   
   bVar3 = 0;
   local_14 = fork();
-  pcVar2 = local_a0;
+  pcVar2 = buffer;
   for (iVar1 = 0x20; iVar1 != 0; iVar1 = iVar1 + -1) {
     pcVar2[0] = '\0';
     pcVar2[1] = '\0';
@@ -48,7 +48,7 @@ undefined4 main(void)
     prctl(1,1); # prctl(PR_SET_PDEATHSIG, SIGHUP)
     ptrace(PTRACE_TRACEME,0,0,0);
     puts("Give me some shellcode, k");
-    gets(local_a0);
+    gets(buffer);
   }
   else {
     do {
