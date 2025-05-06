@@ -1,80 +1,170 @@
 
-=> We have a fgest (login part) that fill 32 bytes in a buffer
-=> We have a scanf that get an unsigned int (number)
-=> These variables are then used in the auth function()
-=> The buffer is encrypted with an XOR on a specific value (enc_value) that is updated for each char in the buffer
-=> It is difficult to break the encryption and the repetition of XOR simply by deducing it
+# level06
 
-=> First we need to break just after the ptrace to bypass the protection ("Tampering detected")
-   0x080487b5 <+109>:	call   0x80485f0 <ptrace@plt>
-   0x080487ba <+114>:	cmp    $0xffffffff,%eax
+## General Informations 
 
-b *0x080487ba
+**Path** : `/home/users/level06/level06` </br>
+**File** : 
+```
+level06: setuid setgid ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0x459bcb819bfdde7ecfa5612c8445e7dd0831cc48, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 level07 users 7907 Sep 10  2016 level06`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   Canary found      NX enabled    No PIE          No RPATH   No RUNPATH   level06
+```
 
-=> Then we break at the final comparison
-   0x08048866 <+286>:	cmp    -0x10(%ebp),%eax
-   0x08048869 <+289>:	je     0x8048872 <auth+298>
-   0x0804886b <+291>:	mov    $0x1,%eax
-   0x08048870 <+296>:	jmp    0x8048877 <auth+303>
-   0x08048872 <+298>:	mov    $0x0,%eax
+## Static Analysis
 
-b *0x08048866
+After decompiling the binary in ghidra, we get the pseudo code below: 
 
-=> We need to write a login more than 5 bytes to trigger the breakpoint
-=> Let's try with "AAAAAA"
-=> On the first breakpoint we set eax to 0 to bypass the protection
+```
+undefined4 auth(char *buffer,uint serial)
+{
+  size_t sVar1;
+  undefined4 uVar2;
+  long lVar3;
+  int index;
+  uint i;
+  
+  sVar1 = strcspn(buffer,"\n");
+  buffer[sVar1] = '\0';
+  sVar1 = strnlen(buffer,0x20);
+  if ((int)sVar1 < 6) {
+    uVar2 = 1;
+  }
+  else {
+    lVar3 = ptrace(PTRACE_TRACEME);
+    if (lVar3 == -1) {
+      puts("\x1b[32m.---------------------------.");
+      puts("\x1b[31m| !! TAMPERING DETECTED !!  |");
+      puts("\x1b[32m\'---------------------------\'");
+      uVar2 = 1;
+    }
+    else {
+      i = ((int)buffer[3] ^ 0x1337U) + 0x5eeded;
+      for (index = 0; index < (int)sVar1; index = index + 1) {
+        if (buffer[index] < ' ') {
+          return 1;
+        }
+        i = i + ((int)buffer[index] ^ i) % 0x539;
+      }
+      if (serial == i) {
+        uVar2 = 0;
+      }
+      else {
+        uVar2 = 1;
+      }
+    }
+  }
+  return uVar2;
+}
+
+bool main(void)
+{
+  int iVar1;
+  int in_GS_OFFSET;
+  char buffer [32];
+  int i;
+  
+  i = *(int *)(in_GS_OFFSET + 0x14);
+  puts("***********************************");
+  puts("*\t\tlevel06\t\t  *");
+  puts("***********************************");
+  printf("-> Enter Login: ");
+  fgets(buffer,0x20,stdin);
+  puts("***********************************");
+  puts("***** NEW ACCOUNT DETECTED ********");
+  puts("***********************************");
+  printf("-> Enter Serial: ");
+  __isoc99_scanf();
+  iVar1 = auth();
+  if (iVar1 == 0) {
+    puts("Authenticated!");
+    system("/bin/sh");
+  }
+  if (i != *(int *)(in_GS_OFFSET + 0x14)) {
+                    /* WARNING: Subroutine does not return */
+    __stack_chk_fail();
+  }
+  return iVar1 != 0;
+}
+```
+
+- `main`
+  - Stores the `login` input in a 32 bytes buffer.
+  - Prompts the user for a serial (unsigned int) using `scanf`.
+  - Calls the `auth` function. If it returns 0, a shell is spawned.
+
+- `auth`
+  - Immediately exits if the program is being run in GDB (protected using `ptrace`).
+  - Converts the `login` input into an unsigned int and checks whether it matches the serial provided earlier.
+
+## Vulnerability found  
+
+
+## Dynamic Analysis
+
+We set a breakpoint inside the `auth` function, right before the GDB detection and the comparison condition:
+```
+(gdb) b *0x080487ba
+```
+
+Then, we add a second breakpoint at the instruction where the computed serial is compared to the one entered:
+```
+(gdb) b *0x08048866
+```
+
+Running the binary with `mtellal` as login and a random serial triggers the first breakpoint. </br>
+By modifying `eax`, we bypass the check and reach the second breakpoint.
+```
+(gdb) r
+...
+-> Enter Login: mtellal
+-> Enter Serial: 9999
+
 Breakpoint 1, 0x080487ba in auth ()
+...
 (gdb) i r
 eax            0xffffffff	-1
-...
-set $eax=0
+(gdb) set $eax=0
+(gdb) c
+Continuing.
 
-=> We then hit the second breakpoint
 Breakpoint 2, 0x08048866 in auth ()
+```
 
-=> We check the value compared to eax (ebp - 0x10)
-(gdb) x $ebp - 0x10
-0xffffd6c8:	0x005f0c3a (6229050)
+The correct serial value is located at `$ebp - 0x10`
+```
+(gdb) x/u $ebp - 0x10
+0xffffd5a8:	6233761
+```
 
-=> We have a the serial corresponding to the login "AAAAAA"
-=> Let's try
-login:  "AAAAAA"
-serial: "6229050"
+Using the login `mtellal` and the serial `6233761` successfully spawns a shell.
 
----------------------------------------------------------------------
 
-The auth() function calculates the serial as follows:
+## Payload construction 
 
-1. Initialization:
 
-	```c
-	local_serial = ((int)login[3] ^ 0x1337) + 0x5eeded;
-	```
-	- login[3]: The 4th character of the input login is XOR-ed with 0x1337 and then added to 0x5eeded.
+## Demonstration 
 
-2. Loop for Serial Calculation:
-	For each character of the login:
-	```c
-	local_serial += ((int)login[i] ^ local_serial) % 1337;
-	```
-	- The serial is updated iteratively with each character of the login:
-	- The current character (login[i]) is XOR-ed with the current serial value.
-	- The result is reduced modulo 1337 and added to the serial.
+```
+level06@OverRide:~$ ./level06 
+***********************************
+*		level06		  *
+***********************************
+-> Enter Login: mtellal
+***********************************
+***** NEW ACCOUNT DETECTED ********
+***********************************
+-> Enter Serial: 6233761
+Authenticated!
+$ whoami
+level07
+```
 
-3. Script to calculate the serial
-
-	```
-	python
-	import sys
-
-	def calculate_serial(login):
-		local_serial = (ord(login[3]) ^ 0x1337) + 0x5eeded
-		for char in login:
-			local_serial += (ord(char) ^ local_serial) % 1337
-		return local_serial
-
-	login = sys.argv[1]
-	serial = calculate_serial(login)
-	print(f"Login: {login}")
-	print(f"Serial: {serial}")
-	```
+## Flag 
+```
+GbcPDRgsFK77LNnnuh7QyFYA2942Gp8yKj9KrWD8
+```
